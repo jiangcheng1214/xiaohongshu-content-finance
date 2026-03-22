@@ -1,0 +1,221 @@
+{
+  "code": "finance",
+  "name": "金融",
+  "generation_mode": "strict",
+  "persona_id": "finance-trader",
+  "keywords": [
+    "美联储",
+    "利率",
+    "A股",
+    "港股",
+    "美股",
+    "基金",
+    "理财",
+    "量化",
+    "通胀",
+    "央行",
+    "股票",
+    "财报",
+    "投资",
+    "交易"
+  ],
+  "search_strategy": {
+    "data_sources": [
+      "公司财报",
+      "官方数据",
+      "央行公告",
+      "Bloomberg",
+      "Reuters",
+      "WSJ"
+    ],
+    "image_types": [
+      "chart",
+      "data",
+      "news"
+    ],
+    "image_keywords": [
+      "图表",
+      "数据",
+      "走势",
+      "财报",
+      "K线",
+      "收入",
+      "增长"
+    ],
+    "content_types": [
+      "新闻",
+      "财报",
+      "分析师观点",
+      "宏观数据"
+    ],
+    "search_queries_template": [
+      "{topic} 财报",
+      "{topic} 数据",
+      "{topic} 最新",
+      "{topic} 分析"
+    ]
+  },
+  "research_dimensions": [
+    {
+      "name": "核心观点",
+      "required": true,
+      "data_driven": true
+    },
+    {
+      "name": "财务数据",
+      "required": true,
+      "fields": [
+        "营收",
+        "EPS",
+        "增长率",
+        "同比",
+        "环比"
+      ]
+    },
+    {
+      "name": "业务拆解",
+      "required": true,
+      "fields": [
+        "各业务收入",
+        "增长驱动",
+        "占比"
+      ]
+    },
+    {
+      "name": "估值分析",
+      "required": true,
+      "fields": [
+        "PE",
+        "PS",
+        "目标价",
+        "历史分位"
+      ]
+    },
+    {
+      "name": "催化剂",
+      "required": true,
+      "fields": [
+        "利好",
+        "利空",
+        "时间节点"
+      ]
+    },
+    {
+      "name": "风险因素",
+      "required": true,
+      "fields": [
+        "市场风险",
+        "公司风险",
+        "政策风险"
+      ]
+    },
+    {
+      "name": "实战建议",
+      "required": true,
+      "fields": [
+        "买卖时机",
+        "仓位建议",
+        "止损位置"
+      ]
+    }
+  ],
+  "content_structure": {
+    "min_length": 400,
+    "max_length": 600,
+    "paragraphs": [
+      {
+        "order": 1,
+        "type": "hook",
+        "name": "开篇钩子",
+        "length": "1-2句",
+        "instruction": "直接抛结论，不要铺垫"
+      },
+      {
+        "order": 2,
+        "type": "body",
+        "name": "核心观点",
+        "length": "50-80字",
+        "instruction": "这是什么，为什么重要，数据驱动"
+      },
+      {
+        "order": 3,
+        "type": "body",
+        "name": "财务数据",
+        "length": "60-100字",
+        "instruction": "具体数字、同比环比、时间戳，必须解释数据含义"
+      },
+      {
+        "order": 4,
+        "type": "body",
+        "name": "业务拆解",
+        "length": "60-100字",
+        "instruction": "哪个业务在涨，为什么，占比"
+      },
+      {
+        "order": 5,
+        "type": "body",
+        "name": "估值分析",
+        "length": "50-80字",
+        "instruction": "贵不贵，跟同类比，历史分位"
+      },
+      {
+        "order": 6,
+        "type": "body",
+        "name": "催化剂风险",
+        "length": "50-80字",
+        "instruction": "什么会推动/拖累股价"
+      },
+      {
+        "order": 7,
+        "type": "body",
+        "name": "实战建议",
+        "length": "40-60字",
+        "instruction": "这对交易意味着什么，什么时候买卖"
+      },
+      {
+        "order": 8,
+        "type": "cta",
+        "name": "关注引导",
+        "length": "1-2句",
+        "instruction": "数据思维、深度认知、持续分享，每次原创"
+      },
+      {
+        "order": 9,
+        "type": "tags",
+        "name": "话题标签",
+        "count": "5-8",
+        "instruction": "#股票 #投资 #量化 等"
+      }
+    ],
+    "requires_risk_warning": true,
+    "requires_data_timestamp": true,
+    "requires_sources": true
+  },
+  "title_template": {
+    "patterns": [
+      "{ticker}: {核心观点}",
+      "{ticker}: {关键词}解析",
+      "{ticker}是{类比对象}",
+      "说人话：{核心观点}"
+    ],
+    "max_length": 20,
+    "style": "直接观点 + 关键信息"
+  },
+  "cover_config": {
+    "logo_file": "logo.png",
+    "default_subtitle": "量化分析",
+    "color_schemes": [
+      "deep blue purple to warm orange yellow gradient",
+      "deep navy to vibrant coral gradient",
+      "rich purple to golden orange gradient",
+      "violet to honey gold gradient"
+    ],
+    "decorations": [
+      "subtle geometric shapes, floating circles and triangles",
+      "minimal data visualization elements, thin chart lines",
+      "geometric hexagon patterns, low opacity",
+      "subtle grid lines, tech aesthetic"
+    ],
+    "style_prefix": "Abstract fintech background"
+  }
+}

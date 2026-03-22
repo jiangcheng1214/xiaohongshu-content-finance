@@ -1,0 +1,225 @@
+{
+  "code": "tech",
+  "name": "科技",
+  "generation_mode": "strict",
+  "persona_id": "tech-reviewer",
+  "keywords": [
+    "AI",
+    "芯片",
+    "手机",
+    "电脑",
+    "显卡",
+    "ChatGPT",
+    "苹果",
+    "华为",
+    "小米",
+    "笔记本",
+    "平板",
+    "智能手表",
+    "耳机",
+    "5G",
+    "折叠屏"
+  ],
+  "search_strategy": {
+    "data_sources": [
+      "品牌官网",
+      "科技媒体",
+      "发布会",
+      "参数对比网站"
+    ],
+    "image_types": [
+      "product",
+      "specs",
+      "comparison",
+      "launch"
+    ],
+    "image_keywords": [
+      "产品图",
+      "发布会",
+      "参数",
+      "对比",
+      "真机",
+      "渲染图"
+    ],
+    "content_types": [
+      "产品评测",
+      "发布会报道",
+      "参数解析",
+      "对比测评",
+      "上手体验"
+    ],
+    "search_queries_template": [
+      "{topic} 评测",
+      "{topic} 参数",
+      "{topic} 发布会",
+      "{topic} 对比",
+      "{topic} 值不值得买"
+    ]
+  },
+  "research_dimensions": [
+    {
+      "name": "核心观点",
+      "required": true,
+      "data_driven": false
+    },
+    {
+      "name": "产品参数",
+      "required": true,
+      "fields": [
+        "处理器",
+        "内存",
+        "存储",
+        "屏幕",
+        "电池",
+        "摄像头"
+      ]
+    },
+    {
+      "name": "性能表现",
+      "required": true,
+      "fields": [
+        "跑分",
+        "实际体验",
+        "流畅度",
+        "游戏性能"
+      ]
+    },
+    {
+      "name": "功能特性",
+      "required": true,
+      "fields": [
+        "亮点功能",
+        "创新点",
+        "生态整合"
+      ]
+    },
+    {
+      "name": "竞品对比",
+      "required": true,
+      "fields": [
+        "对比机型",
+        "优势",
+        "劣势"
+      ]
+    },
+    {
+      "name": "价格分析",
+      "required": true,
+      "fields": [
+        "售价",
+        "性价比",
+        "同类产品价格"
+      ]
+    },
+    {
+      "name": "购买建议",
+      "required": true,
+      "fields": [
+        "推荐人群",
+        "购买时机",
+        "注意事项"
+      ]
+    }
+  ],
+  "content_structure": {
+    "min_length": 380,
+    "max_length": 580,
+    "paragraphs": [
+      {
+        "order": 1,
+        "type": "hook",
+        "name": "开篇钩子",
+        "length": "1-2句",
+        "instruction": "直接说结论或抛问题"
+      },
+      {
+        "order": 2,
+        "type": "body",
+        "name": "产品定位",
+        "length": "40-60字",
+        "instruction": "这是什么产品，什么定位，什么价格"
+      },
+      {
+        "order": 3,
+        "type": "body",
+        "name": "核心参数",
+        "length": "60-100字",
+        "instruction": "处理器、内存、屏幕等核心参数"
+      },
+      {
+        "order": 4,
+        "type": "body",
+        "name": "实际体验",
+        "length": "60-100字",
+        "instruction": "实际使用感受，流畅度，续航，信号"
+      },
+      {
+        "order": 5,
+        "type": "body",
+        "name": "竞品对比",
+        "length": "50-80字",
+        "instruction": "和竞品对比，优势劣势"
+      },
+      {
+        "order": 6,
+        "type": "body",
+        "name": "价格分析",
+        "length": "40-60字",
+        "instruction": "值不值，性价比，同类对比"
+      },
+      {
+        "order": 7,
+        "type": "body",
+        "name": "购买建议",
+        "length": "1-2句",
+        "instruction": "适合谁，什么时候买"
+      },
+      {
+        "order": 8,
+        "type": "cta",
+        "name": "关注引导",
+        "length": "1-2句",
+        "instruction": "真实评测、参数党、持续分享，每次原创"
+      },
+      {
+        "order": 9,
+        "type": "tags",
+        "name": "话题标签",
+        "count": "5-8",
+        "instruction": "#数码 #科技 #评测 等"
+      }
+    ],
+    "requires_risk_warning": false,
+    "requires_data_timestamp": false,
+    "requires_sources": true,
+    "requires_specs_mention": true
+  },
+  "title_template": {
+    "patterns": [
+      "{product}真实评测",
+      "{product}值不值得买？",
+      "{product}参数党进",
+      "{product}上手{天数}天感受",
+      "说人话：{product}怎么样"
+    ],
+    "max_length": 20,
+    "style": "产品名 + 问题/结论"
+  },
+  "cover_config": {
+    "logo_file": "logo.png",
+    "default_subtitle": "科技前沿",
+    "color_schemes": [
+      "dark blue to cyan gradient",
+      "deep purple to electric blue gradient",
+      "navy to teal gradient",
+      "black to holographic cyan gradient"
+    ],
+    "decorations": [
+      "circuit board patterns, subtle tech lines",
+      "geometric tech shapes, hexagons and nodes",
+      "digital grid pattern, low opacity",
+      "minimal data visualization, tech aesthetic"
+    ],
+    "style_prefix": "Tech and digital aesthetic background"
+  }
+}

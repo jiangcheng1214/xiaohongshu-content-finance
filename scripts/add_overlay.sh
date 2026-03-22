@@ -51,12 +51,12 @@ WIDTH=$(echo $DIMENSIONS | cut -d' ' -f1)
 HEIGHT=$(echo $DIMENSIONS | cut -d' ' -f2)
 
 # Logo 位置: 左上角位置，不与标题冲突
-LOGO_X=$((WIDTH * 28 / 100))
-LOGO_Y=$((HEIGHT * 41 / 100))
+LOGO_X=$((WIDTH * 5 / 100))
+LOGO_Y=$((HEIGHT * 4 / 100))
 
 # 横幅遮罩尺寸（横跨整个图片宽度）
 BAND_WIDTH=$WIDTH
-BAND_HEIGHT=$((HEIGHT * 22 / 100))
+BAND_HEIGHT=$((HEIGHT * 18 / 100))
 
 TEMP1=$(mktemp).png
 cleanup() {
@@ -67,17 +67,18 @@ trap cleanup EXIT
 # 第一步：中央横幅遮罩
 "$MAGICK" "$INPUT" \
     \( -size "${BAND_WIDTH}x${BAND_HEIGHT}" \
-       xc:"rgba(0,0,0,0.75)" \
+       xc:"rgba(0,0,0,0.45)" \
        -gravity center \) \
+    -geometry +0-10 \
     -compose over -composite "$TEMP1"
 
 # 第二步：大标题
 "$MAGICK" "$TEMP1" \
-    -font "$MAGICK_FONT_BOLD" -pointsize 150 \
-    -fill "rgba(0,0,0,0.5)" \
+    -font "$MAGICK_FONT_BOLD" -pointsize 130 \
+    -fill "rgba(0,0,0,0.55)" \
     -gravity center \
-    -annotate +2+12 "$TITLE" \
-    -font "$MAGICK_FONT_BOLD" -pointsize 150 \
+    -annotate +0-12 "$TITLE" \
+    -font "$MAGICK_FONT_BOLD" -pointsize 100 \
     -fill "white" \
     -gravity center \
     -annotate +0+10 "$TITLE" \
@@ -86,16 +87,16 @@ trap cleanup EXIT
 # 第三步：副标题（带精致装饰，间距加倍）
 "$MAGICK" "$TEMP1" \
     \( -size "120x3" xc:"rgba(255,100,100,0.8)" \) \
-    -gravity center -geometry +0+160 -compose over -composite \
-    -font "$MAGICK_FONT_LIGHT" -pointsize 38 \
+    -gravity center -geometry +0+140 -compose over -composite \
+    -font "$MAGICK_FONT_LIGHT" -pointsize 45 \
     -fill "rgba(255,255,255,0.95)" \
     -gravity center \
-    -annotate +0+200 "$SUBTITLE" \
+    -annotate +0+180 "$SUBTITLE" \
     "$TEMP1"
 
 # 第四步：Logo（使用本地图片，最后添加）
 # Logo 尺寸 - 更小更精致
-LOGO_SIZE=$((WIDTH * 10 / 100))
+LOGO_SIZE=$((WIDTH * 22 / 100))
 TEMP_LOGO=$(mktemp).png
 # 先调整 Logo 大小
 "$MAGICK" "$LOGO_PATH" -resize "${LOGO_SIZE}x${LOGO_SIZE}" "$TEMP_LOGO"

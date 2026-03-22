@@ -1,0 +1,225 @@
+{
+  "code": "beauty",
+  "name": "美妆",
+  "generation_mode": "strict",
+  "persona_id": "beauty-influencer",
+  "keywords": [
+    "口红",
+    "粉底液",
+    "精华",
+    "面霜",
+    "防晒",
+    "护肤",
+    "彩妆",
+    "眼影",
+    "腮红",
+    "睫毛膏",
+    "妆前乳",
+    "散粉",
+    "气垫",
+    "遮瑕"
+  ],
+  "search_strategy": {
+    "data_sources": [
+      "品牌官网",
+      "小红书",
+      "天猫旗舰店",
+      "美妆博主测评"
+    ],
+    "image_types": [
+      "product",
+      "swatch",
+      "before_after",
+      "texture"
+    ],
+    "image_keywords": [
+      "产品图",
+      "试色",
+      "质地",
+      "上脸",
+      "效果",
+      "包装",
+      "手臂试色"
+    ],
+    "content_types": [
+      "产品测评",
+      "使用心得",
+      "成分分析",
+      "对比测评"
+    ],
+    "search_queries_template": [
+      "{topic} 测评",
+      "{topic} 试色",
+      "{topic} 成分",
+      "{topic} 值得买吗",
+      "{topic} 避坑"
+    ]
+  },
+  "research_dimensions": [
+    {
+      "name": "核心观点",
+      "required": true,
+      "data_driven": false
+    },
+    {
+      "name": "产品信息",
+      "required": true,
+      "fields": [
+        "品牌",
+        "价格",
+        "规格",
+        "上市时间"
+      ]
+    },
+    {
+      "name": "质地体验",
+      "required": true,
+      "fields": [
+        "质地",
+        "延展性",
+        "吸收速度",
+        "妆感"
+      ]
+    },
+    {
+      "name": "效果表现",
+      "required": true,
+      "fields": [
+        "遮瑕力",
+        "持妆度",
+        "显色度",
+        "保湿力"
+      ]
+    },
+    {
+      "name": "肤质适配",
+      "required": true,
+      "fields": [
+        "干皮",
+        "油皮",
+        "混合皮",
+        "敏感肌"
+      ]
+    },
+    {
+      "name": "性价比",
+      "required": true,
+      "fields": [
+        "价格",
+        "容量",
+        "同类对比",
+        "平替推荐"
+      ]
+    },
+    {
+      "name": "购买建议",
+      "required": true,
+      "fields": [
+        "推荐人群",
+        "避坑提醒",
+        "购买渠道"
+      ]
+    }
+  ],
+  "content_structure": {
+    "min_length": 350,
+    "max_length": 550,
+    "paragraphs": [
+      {
+        "order": 1,
+        "type": "hook",
+        "name": "开篇钩子",
+        "length": "1-2句",
+        "instruction": "直接说结论或制造悬念"
+      },
+      {
+        "order": 2,
+        "type": "body",
+        "name": "产品定位",
+        "length": "40-60字",
+        "instruction": "这是什么产品，什么牌子，什么价位"
+      },
+      {
+        "order": 3,
+        "type": "body",
+        "name": "质地体验",
+        "length": "60-100字",
+        "instruction": "质地描述，上脸感受，味道，延展性"
+      },
+      {
+        "order": 4,
+        "type": "body",
+        "name": "效果表现",
+        "length": "60-100字",
+        "instruction": "实际效果，持妆度，遮瑕力，显色度"
+      },
+      {
+        "order": 5,
+        "type": "body",
+        "name": "肤质适配",
+        "length": "40-60字",
+        "instruction": "什么肤质适合/不适合，干皮油皮"
+      },
+      {
+        "order": 6,
+        "type": "body",
+        "name": "性价比",
+        "length": "40-60字",
+        "instruction": "值不值，有平替吗，同类对比"
+      },
+      {
+        "order": 7,
+        "type": "body",
+        "name": "购买建议",
+        "length": "1-2句",
+        "instruction": "推荐/不推荐，适合谁"
+      },
+      {
+        "order": 8,
+        "type": "cta",
+        "name": "关注引导",
+        "length": "1-2句",
+        "instruction": "真实测评、避坑指南、持续分享，每次原创"
+      },
+      {
+        "order": 9,
+        "type": "tags",
+        "name": "话题标签",
+        "count": "5-8",
+        "instruction": "#美妆 #护肤 #测评 等"
+      }
+    ],
+    "requires_risk_warning": false,
+    "requires_data_timestamp": false,
+    "requires_sources": false,
+    "requires_skintype_mention": true
+  },
+  "title_template": {
+    "patterns": [
+      "{product}真实测评",
+      "{product}值不值得买？",
+      "{product}踩雷/真香",
+      "黄皮/白皮姐妹看：{product}",
+      "{product}使用{天数}天感受"
+    ],
+    "max_length": 20,
+    "style": "产品名 + 结论/疑问"
+  },
+  "cover_config": {
+    "logo_file": "logo.png",
+    "default_subtitle": "美妆测评",
+    "color_schemes": [
+      "soft pink to peach gradient",
+      "rose gold to warm champagne gradient",
+      "dusty rose to blush pink gradient",
+      "warm nude to soft coral gradient"
+    ],
+    "decorations": [
+      "soft floating petals, subtle",
+      "minimal hearts, low opacity",
+      "soft circular bokeh effects",
+      "elegant serif typography elements"
+    ],
+    "style_prefix": "Elegant beauty background"
+  }
+}
