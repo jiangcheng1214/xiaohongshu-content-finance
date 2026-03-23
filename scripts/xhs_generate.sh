@@ -17,7 +17,6 @@ if [[ -z "$TOPIC" ]]; then
     echo "" >&2
     echo "Actions:" >&2
     echo "  --init    初始化新session" >&2
-    echo "  --images  搜索并下载图片" >&2
     echo "  --content 生成文字内容" >&2
     echo "  --cover   生成封面" >&2
     echo "  --info    显示session信息" >&2
@@ -50,10 +49,6 @@ case "$ACTION" in
     --init)
         echo "$SESSION_DIR"
         ;;
-    --images)
-        "$SCRIPT_DIR/session_search_images.sh" "$SESSION_DIR"
-        "$SCRIPT_DIR/session_info.sh" "$SESSION_DIR"
-        ;;
     --content)
         "$SCRIPT_DIR/session_generate_content.sh" "$SESSION_DIR"
         "$SCRIPT_DIR/session_info.sh" "$SESSION_DIR"
@@ -72,19 +67,14 @@ case "$ACTION" in
         echo "========================================" >&2
         echo "" >&2
 
-        # 步骤1: 图片搜索
-        echo "📸 步骤 1/3: 图片搜索" >&2
-        "$SCRIPT_DIR/session_search_images.sh" "$SESSION_DIR" >/dev/null
+        # 步骤1: 内容生成
+        echo "📝 步骤 1/2: 内容生成" >&2
+        "$SCRIPT_DIR/session_generate_content.sh" "$SESSION_DIR"
         echo "" >&2
 
-        # 步骤2: 内容生成
-        echo "📝 步骤 2/3: 内容生成" >&2
-        "$SCRIPT_DIR/session_generate_content.sh" "$SESSION_DIR" >/dev/null
-        echo "" >&2
-
-        # 步骤3: 封面生成
-        echo "🎨 步骤 3/3: 封面生成" >&2
-        "$SCRIPT_DIR/session_generate_cover.sh" "$SESSION_DIR" >/dev/null
+        # 步骤2: 封面生成
+        echo "🎨 步骤 2/2: 封面生成" >&2
+        "$SCRIPT_DIR/session_generate_cover.sh" "$SESSION_DIR"
         echo "" >&2
 
         # 显示结果

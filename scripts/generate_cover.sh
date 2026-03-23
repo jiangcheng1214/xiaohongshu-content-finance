@@ -1,13 +1,38 @@
 #!/bin/bash
-# 生成小红书封面图（3:4 竖版）- 两步法：背景+文字
-# 用法: ./generate_cover.sh <vertical> "标题" "副标题" "输出路径"
+# 生成小红书封面图（3:4 竖版）- 底层脚本
+#
+# 【重要】此脚本只能接受标准4参数格式
+# 用法: ./generate_cover.sh <vertical> <title> <subtitle> <output_path>
+#
+# 调用规范：
+#   - 外部调用必须通过 session_generate_cover.sh
+#   - 不要直接调用此脚本
+#   - 参数必须完整：vertical title subtitle output
 
 set -e
 
-VERTICAL="${1:-finance}"
+# 参数验证
+if [[ $# -ne 4 ]]; then
+    echo "错误: generate_cover.sh 需要4个参数" >&2
+    echo "用法: $0 <vertical> <title> <subtitle> <output_path>" >&2
+    echo "" >&2
+    echo "调用规范:" >&2
+    echo "  请使用 session_generate_cover.sh 作为入口" >&2
+    echo "  或确保传递4个参数: vertical title subtitle output_path" >&2
+    exit 1
+fi
+
+VERTICAL="$1"
 TITLE="$2"
-SUBTITLE="${3:-}"
-OUTPUT="${4:-/tmp/xhs_cover_$(date +%s).png}"
+SUBTITLE="$3"
+OUTPUT="$4"
+
+# 参数非空验证
+if [[ -z "$VERTICAL" ]] || [[ -z "$TITLE" ]] || [[ -z "$OUTPUT" ]]; then
+    echo "错误: vertical, title, output_path 不能为空" >&2
+    exit 1
+fi
+
 TEMP_BG="/tmp/xhs_cover_bg_$(date +%s).png"
 NANO_BANANA_SCRIPT="/opt/homebrew/lib/node_modules/openclaw/skills/nano-banana-pro/scripts/generate_image.py"
 
@@ -55,7 +80,7 @@ get_logo_path() {
 LOGO_PATH=$(get_logo_path "$VERTICAL_CONFIG" "$SKILL_DIR")
 
 # 提取其他配置
-DEFAULT_SUBTITLE=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG')); print(c['cover_config'].get('default_subtitle', '分享'))" 2>/dev/null || echo "分享")
+DEFAULT_SUBTITLE=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG')); print(c['cover_config'].get('default_subtitle'))" 2>/dev/null || echo "分享")
 STYLE_PREFIX=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG')); print(c['cover_config'].get('style_prefix', 'Modern background'))" 2>/dev/null || echo "Modern background")
 
 # 如果没有提供副标题，使用垂类默认值
@@ -65,168 +90,94 @@ fi
 
 # 从 openclaw.json 读取 GEMINI_API_KEY
 CONFIG_FILE="$HOME/.openclaw/openclaw.json"
+API_KEY=""
 if [[ -f "$CONFIG_FILE" ]]; then
     API_KEY=$(cat "$CONFIG_FILE" | python3 -c "
 import json, sys
-try:
-    d = json.load(sys.stdin)
-    key = d.get('env', {}).get('GEMINI_API_KEY', '')
-    if not key:
-        key = d.get('skills', {}).get('entries', {}).get('nano-banana-pro', {}).get('apiKey', '')
-    print(key)
-except:
-    pass
+d = json.load(sys.stdin)
+key = d.get('env', {}).get('GEMINI_API_KEY', '')
+if not key:
+    key = d.get('skills', {}).get('entries', {}).get('nano-banana-pro', {}).get('apiKey', '')
+if key:
+    print(key, end='')
 " 2>/dev/null)
 fi
 
+# 如果还是没有，尝试环境变量
 if [[ -z "$API_KEY" ]]; then
     API_KEY="${GEMINI_API_KEY:-}"
 fi
 
+# 检查 API key
+if [[ -z "$API_KEY" ]]; then
+    echo "# ⚠️ 警告: 未找到 GEMINI_API_KEY" >&2
+    echo "# 请在 ~/.openclaw/openclaw.json 中配置 env.GEMINI_API_KEY" >&2
+    echo "# 或设置 skills.entries.nano-banana-pro.apiKey" >&2
+fi
+
+
 # 第一步：生成背景图
 echo "# Generating background for vertical: $VERTICAL..." >&2
 
-# 从配置加载配色方案和装饰元素
-COLOR_SCHEMES_FILE=$(mktemp)
-DECORATION_FILE=$(mktemp)
+# 构建 prompt - 使用 background_prompt_template
+PROMPT_TEMPLATE=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG')); print(c['cover_config'].get('background_prompt_template', ''))" 2>/dev/null || echo "")
 
-python3 -c "
-import json
-try:
-    c = json.load(open('$VERTICAL_CONFIG'))
-    schemes = c['cover_config'].get('color_schemes', ['deep blue to purple gradient'])
-    for s in schemes:
-        print(s)
-except:
-    print('deep blue to purple gradient')
-" > "$COLOR_SCHEMES_FILE"
-
-python3 -c "
-import json
-try:
-    c = json.load(open('$VERTICAL_CONFIG'))
-    decors = c['cover_config'].get('decorations', ['subtle geometric patterns'])
-    for d in decors:
-        print(d)
-except:
-    print('subtle geometric patterns')
-" > "$DECORATION_FILE"
-
-# 计算行数并随机选择
-COLOR_COUNT=$(wc -l < "$COLOR_SCHEMES_FILE" | tr -d ' ')
-DECOR_COUNT=$(wc -l < "$DECORATION_FILE" | tr -d ' ')
-
-COLOR_IDX=$((RANDOM % COLOR_COUNT + 1))
-DECOR_IDX=$((RANDOM % DECOR_COUNT + 1))
-
-SELECTED_COLOR=$(sed -n "${COLOR_IDX}p" "$COLOR_SCHEMES_FILE")
-SELECTED_DECOR=$(sed -n "${DECOR_IDX}p" "$DECORATION_FILE")
-
-rm -f "$COLOR_SCHEMES_FILE" "$DECORATION_FILE"
-
-# 构建 prompt
 TEMP_PROMPT=$(mktemp)
-cat > "$TEMP_PROMPT" << EOF
-${STYLE_PREFIX}, ${SELECTED_COLOR}, ${SELECTED_DECOR}, clean modern background in elegant design, flat style, 3:4 portrait, no text, no words, no letters, minimal aesthetic.
-EOF
+if [[ -n "$PROMPT_TEMPLATE" ]]; then
+    # 使用配置中的完整 prompt 模板
+    echo "$PROMPT_TEMPLATE" > "$TEMP_PROMPT"
+    echo "# 使用垂类专属 prompt 模板" >&2
+else
+    # 回退到旧的方式
+    echo "$STYLE_PREFIX, clean modern background, 3:4 portrait, no text" > "$TEMP_PROMPT"
+    echo "# 使用默认 prompt" >&2
+fi
 
-echo "# Color scheme: ${SELECTED_COLOR}" >&2
-echo "# Decoration: ${SELECTED_DECOR}" >&2
+echo "# Prompt: $(cat $TEMP_PROMPT)" >&2
 echo "# Logo: $(basename $LOGO_PATH)" >&2
 echo "# Subtitle: ${SUBTITLE}" >&2
 
-TEMP_OUTPUT=$(mktemp)
+# 尝试生成背景图 - 使用 nano banana pro
+echo "# 调用 nano banana pro 生成背景..." >&2
 
-# 尝试生成背景图
-API_SUCCESS=false
+# 构建 API 命令
+API_CMD="uv run $NANO_BANANA_SCRIPT --prompt \"$(cat $TEMP_PROMPT)\" --filename \"$TEMP_BG\" --aspect-ratio 3:4 --resolution 1K"
+
+# 添加 API key（如果存在）
 if [[ -n "$API_KEY" ]]; then
-    if uv run "$NANO_BANANA_SCRIPT" \
-        --prompt "$(cat "$TEMP_PROMPT")" \
-        --filename "$TEMP_BG" \
-        --aspect-ratio 3:4 \
-        --resolution 1K \
-        --api-key "$API_KEY" 2>&1 | tee "$TEMP_OUTPUT" | grep -v "^MEDIA:"; then
-        if [[ -f "$TEMP_BG" ]]; then
-            API_SUCCESS=true
-        fi
+    API_CMD="$API_CMD --api-key \"$API_KEY\""
+fi
+
+echo "# 执行: $API_CMD" >&2
+
+# 执行命令并捕获输出
+eval $API_CMD > /tmp/cover_gen_output.txt 2>&1
+API_EXIT_CODE=$?
+
+echo "# API 退出码: $API_EXIT_CODE" >&2
+
+# 检查是否成功
+if [[ -f "$TEMP_BG" ]]; then
+    FILE_SIZE=$(stat -f%z "$TEMP_BG" 2>/dev/null || stat -c%s "$TEMP_BG" 2>/dev/null || echo "0")
+    echo "# ✓ 背景生成成功，大小: ${FILE_SIZE} bytes" >&2
+
+    # 检查文件大小，如果太小可能是错误图片
+    if [[ $FILE_SIZE -lt 1000 ]]; then
+        echo "# ⚠️ 警告: 生成的图片太小，可能是错误" >&2
+        cat /tmp/cover_gen_output.txt >&2
     fi
 else
-    if uv run "$NANO_BANANA_SCRIPT" \
-        --prompt "$(cat "$TEMP_PROMPT")" \
-        --filename "$TEMP_BG" \
-        --aspect-ratio 3:4 \
-        --resolution 1K 2>&1 | tee "$TEMP_OUTPUT" | grep -v "^MEDIA:"; then
-        if [[ -f "$TEMP_BG" ]]; then
-            API_SUCCESS=true
-        fi
-    fi
-fi
-rm -f "$TEMP_OUTPUT"
-
-# 如果 API 失败，使用本地生成的复杂背景
-if [[ "$API_SUCCESS" = false ]]; then
-    echo "# AI 背景生成失败，使用备用复杂背景" >&2
-
-    # 从配色方案中提取颜色关键词，转换为具体颜色
-    case "$SELECTED_COLOR" in
-        *blue*|*violet*|*purple*|*navy*)
-            PRIMARY_COLOR="#0f0c29"
-            SECONDARY_COLOR="#302b63"
-            ACCENT_COLOR="#24243e"
-            ;;
-        *gold*|*amber*|*orange*|*peach*|*honey*|*coral*)
-            PRIMARY_COLOR="#1a1a2e"
-            SECONDARY_COLOR="#4a3f35"
-            ACCENT_COLOR="#c9a227"
-            ;;
-        *green*|*teal*)
-            PRIMARY_COLOR="#0d1b1e"
-            SECONDARY_COLOR="#1b3a35"
-            ACCENT_COLOR="#2d6a4f"
-            ;;
-        *pink*|*rose*)
-            PRIMARY_COLOR="#1a0b14"
-            SECONDARY_COLOR="#3d1f2d"
-            ACCENT_COLOR="#c9184a"
-            ;;
-        *)
-            PRIMARY_COLOR="#0f0c29"
-            SECONDARY_COLOR="#302b63"
-            ACCENT_COLOR="#24243e"
-            ;;
-    esac
-
-    # 使用 ImageMagick 创建复杂背景
-    if command -v magick &> /dev/null; then
-        MAGICK="magick"
-    elif command -v convert &> /dev/null; then
-        MAGICK="convert"
-    else
-        echo "未找到 ImageMagick，无法生成备用背景" >&2
-        exit 1
-    fi
-
-    # 创建渐变背景
-    "$MAGICK" -size "1080x1440" gradient:"${PRIMARY_COLOR}-${SECONDARY_COLOR}" "$TEMP_BG"
-
-    # 添加几何装饰图案
-    TEMP_PATTERN=$(mktemp).png
-    "$MAGICK" -size "1080x1440" xc:none \
-        -draw "circle 540,720 540,100" \
-        -draw "circle 200,300 200,50" \
-        -draw "circle 880,1140 880,50" \
-        -fill "rgba(255,255,255,0.03)" -draw "rectangle 100,100 980,1340" \
-        "$TEMP_PATTERN"
-
-    # 合成
-    "$MAGICK" "$TEMP_BG" "$TEMP_PATTERN" -compose over -composite "$TEMP_BG"
-    rm -f "$TEMP_PATTERN"
-fi
-
-if [[ ! -f "$TEMP_BG" ]]; then
-    echo "背景图文件未生成: $TEMP_BG" >&2
+    echo "# ✗ 背景生成失败！" >&2
+    echo "# 输出:" >&2
+    cat /tmp/cover_gen_output.txt >&2
+    echo "" >&2
+    echo "# 提示: 请检查 nano banana pro 是否正确安装" >&2
+    echo "# 脚本路径: $NANO_BANANA_SCRIPT" >&2
+    rm -f /tmp/cover_gen_output.txt
     exit 1
 fi
+
+rm -f /tmp/cover_gen_output.txt
 
 # 保存原始背景图副本
 BG_BACKUP="${OUTPUT%.png}_bg.png"
@@ -234,7 +185,7 @@ cp "$TEMP_BG" "$BG_BACKUP"
 
 # 第二步：调用 add_overlay.sh 添加文字叠加
 echo "# Adding text overlay..." >&2
-"$SCRIPT_DIR/add_overlay.sh" "$TEMP_BG" "$TITLE" "$SUBTITLE" "$OUTPUT" "$LOGO_PATH"
+"$SCRIPT_DIR/add_overlay.sh" "$TEMP_BG" "$TITLE" "$SUBTITLE" "$OUTPUT" "$LOGO_PATH" "$VERTICAL"
 
 # 清理临时文件
 rm -f "$TEMP_BG" "$TEMP_PROMPT"

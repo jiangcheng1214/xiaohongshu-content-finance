@@ -93,29 +93,17 @@
   },
   "title_template": {
     "patterns": [
-      "{topic}: {核心观点}",
-      "{topic}: {关键词}解析",
+      "{topic}：{核心观点}",
+      "{topic}：{关键词}解析",
       "{topic}是{类比对象}",
       "说人话：{核心观点}"
     ],
     "max_length": 20,
-    "style": "直接观点 + 关键信息"
+    "style": "直接观点 + 关键信息",
+    "separator": "："
   },
   "cover_config": {
     "logo_file": "finance.png",
-    "default_subtitle": "量化分析",
-    "color_schemes": [
-      "deep blue purple to warm orange yellow gradient",
-      "deep navy to vibrant coral gradient",
-      "rich purple to golden orange gradient",
-      "violet to honey gold gradient"
-    ],
-    "decorations": [
-      "subtle geometric shapes, floating circles and triangles",
-      "minimal data visualization elements, thin chart lines",
-      "geometric hexagon patterns, low opacity",
-      "subtle grid lines, tech aesthetic"
-    ],
-    "style_prefix": "Abstract fintech background"
+    "background_prompt_template": "Professional modern color gradient background in elegant design, subtle floating  geometric shapes, flat style, 3:4 portrait, no text, no words, no letters, minimal tech aesthetic."
   }
 }

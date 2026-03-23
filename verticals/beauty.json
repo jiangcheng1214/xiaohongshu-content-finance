@@ -93,30 +93,17 @@
   },
   "title_template": {
     "patterns": [
-      "{topic}真实测评",
-      "{topic}值不值得买？",
-      "{topic}踩雷/真香",
-      "黄皮/白皮姐妹看：{topic}",
-      "{topic}使用{天数}天感受"
+      "{topic}：真实测评",
+      "{topic}：值不值得买？",
+      "{topic}：踩雷还是真香",
+      "{topic}：使用{天数}天感受"
     ],
     "max_length": 20,
-    "style": "产品名 + 结论/疑问"
+    "style": "产品名 + 结论/疑问",
+    "separator": "："
   },
   "cover_config": {
     "logo_file": "default.png",
-    "default_subtitle": "美妆测评",
-    "color_schemes": [
-      "soft pink to peach gradient",
-      "rose gold to warm champagne gradient",
-      "dusty rose to blush pink gradient",
-      "warm nude to soft coral gradient"
-    ],
-    "decorations": [
-      "soft floating petals, subtle",
-      "minimal hearts, low opacity",
-      "soft circular bokeh effects",
-      "elegant serif typography elements"
-    ],
-    "style_prefix": "Elegant beauty background"
+    "background_prompt_template": "Cute viral Xiaohongshu beauty product photography, soft dreamy lighting, pastel pink and peach gradient background, floating cosmetic products like lipstick and foundation bottles, soft bokeh effects, Instagram aesthetic, k-pop style, trendy social media vibe, professional product photography, shallow depth of field, romantic and girly, 3:4 portrait, clean background area for text overlay"
   }
 }

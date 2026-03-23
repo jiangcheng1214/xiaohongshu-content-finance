@@ -31,27 +31,27 @@ if [[ ! -f "$VERTICAL_CONFIG" ]]; then
 fi
 
 # 创建session目录
-mkdir -p "$SESSION_DIR/images"
+mkdir -p "$SESSION_DIR"
 
 # 生成session.json
 python3 << EOF
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 session = {
     "id": "xhs_session_${TIMESTAMP}_${SAFE_TOPIC}",
     "vertical": "$VERTICAL",
     "topic": "$TOPIC",
     "safe_topic": "$SAFE_TOPIC",
-    "created_at": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+    "created_at": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
     "status": "initialized",
     "steps": {
         "init": True,
-        "images": False,
         "content": False,
         "cover": False,
         "sent": False
     },
+    "debug": {},
     "config": {
         "vertical": "$VERTICAL"
     }

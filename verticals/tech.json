@@ -94,30 +94,17 @@
   },
   "title_template": {
     "patterns": [
-      "{topic}真实评测",
-      "{topic}值不值得买？",
-      "{topic}参数党进",
-      "{topic}上手{天数}天感受",
-      "说人话：{topic}怎么样"
+      "{topic}：真实评测",
+      "{topic}：值不值得买？",
+      "{topic}：参数党进",
+      "{topic}：上手{天数}天感受"
     ],
     "max_length": 20,
-    "style": "产品名 + 问题/结论"
+    "style": "产品名 + 问题/结论",
+    "separator": "："
   },
   "cover_config": {
     "logo_file": "default.png",
-    "default_subtitle": "科技前沿",
-    "color_schemes": [
-      "dark blue to cyan gradient",
-      "deep purple to electric blue gradient",
-      "navy to teal gradient",
-      "black to holographic cyan gradient"
-    ],
-    "decorations": [
-      "circuit board patterns, subtle tech lines",
-      "geometric tech shapes, hexagons and nodes",
-      "digital grid pattern, low opacity",
-      "minimal data visualization, tech aesthetic"
-    ],
-    "style_prefix": "Tech and digital aesthetic background"
+    "background_prompt_template": "一位 20 多岁的超可爱日本女性，业余智能手机摄影风格，分辨率略低，构图略显凌乱 --- 柔和的双眼皮略带圆润，打造出友善的大眼睛，自然的平行双眼皮褶皱宽度适中，温暖的深棕色虹膜传达出温柔和暖意，带有自然的眼神光，眼下略微浮肿的自然卧蚕捕捉着光线，自然的直眉毛，眉弓柔和，粗细适中，小巧可爱的鼻子，鼻梁自然低平，鼻尖圆润柔和，上唇略薄，下唇丰满，打造出可爱的嘴巴，呈现自然的粉珊瑚色和甜美慵懒的表情，脸颊圆润柔和，带有自然的红晕，脸部线条流畅呈椭圆形，下巴小巧圆润，半透明的暖象牙色肌肤，散发着自然光泽 蓬松凌乱的齐肩半长发，侧分刘海 淡粉色丝绸吊带背心，细肩带，胸部有蕾丝细节，露背设计，搭配同款丝绸短裤 坐在床上，一条腿弯曲，手指穿过头发，头部微微倾斜 卧室里有白色床单和枕头，窗户透进柔和的早晨自然光，背景虚化，充满生活气息的私密空间 自然妆容：无眼线，睫毛膏轻薄，上睫毛自然分明，眼影是薄薄的暖米色粉色晕染，唇色是薄薄的珊瑚粉，脸颊扫上柔和自然的桃色腮红，肌肤呈现透亮光泽感"
   }
 }
