@@ -40,103 +40,21 @@ fi
 # 生成内容（调用Claude API）
 CONTENT_OUTPUT="$SESSION_DIR/content.md"
 
-# 构建生成内容的prompt
+# 使用 Python 脚本加载模板并构建 prompt
 PROMPT_FILE=$(mktemp)
-cat > "$PROMPT_FILE" << 'EOFPROMPT'
-你是一个专业的小红书内容创作者。请根据以下配置生成一篇高质量的小红书内容。
-
-EOFPROMPT
-
-# 添加垂类配置到prompt
-echo "" >> "$PROMPT_FILE"
-echo "## 垂类配置" >> "$PROMPT_FILE"
-python3 -c "
-import json
-with open('$VERTICAL_CONFIG', 'r') as f:
-    config = json.load(f)
-    print(f'垂类: {config.get(\"name\", \"\")}')
-    print(f'生成模式: {config.get(\"generation_mode\", \"strict\")}')
-    print()
-
-    # 输出内容结构要求
-    structure = config.get('content_structure', {})
-    print('### 内容结构要求')
-    print(f'最小长度: {structure.get(\"min_length\", 300)}字')
-    print(f'最大长度: {structure.get(\"max_length\", 600)}字')
-    print()
-
-    # 输出段落配置
-    paragraphs = structure.get('paragraphs', [])
-    if paragraphs:
-        print('### 段落结构')
-        for p in paragraphs:
-            order = p.get('order', 0)
-            p_type = p.get('type', 'body')
-            name = p.get('name', '')
-            length = p.get('length', '')
-            instruction = p.get('instruction', '')
-            print(f'{order}. [{p_type}] {name} - {length}')
-            print(f'   指令: {instruction}')
-        print()
-
-    # 输出特殊要求
-    if structure.get('requires_risk_warning'):
-        print('### 要求: 需要风险提示')
-    if structure.get('requires_data_timestamp'):
-        print('### 要求: 需要数据时间戳')
-    if structure.get('requires_sources'):
-        print('### 要求: 需要数据来源')
-    print()
-
-    # 输出标题模板
-    title_template = config.get('title_template', {})
-    print('### 标题模板')
-    patterns = title_template.get('patterns', [])
-    for pattern in patterns[:3]:
-        print(f'  - {pattern}')
-    print(f'  最大长度: {title_template.get(\"max_length\", 20)}字')
-" >> "$PROMPT_FILE"
-
-# 添加人设到prompt
-if [[ -n "$PERSONA_FILE" && -f "$PERSONA_FILE" ]]; then
-    echo "" >> "$PROMPT_FILE"
-    echo "## 人设规范" >> "$PROMPT_FILE"
-    cat "$PERSONA_FILE" >> "$PROMPT_FILE"
+PERSONA_ARG="${PERSONA_FILE:-None}"
+"$SCRIPT_DIR/build_prompt.py" "$VERTICAL_CONFIG" "$PERSONA_ARG" "$TOPIC" "$VERTICAL" > "$PROMPT_FILE"
+if [[ $? -ne 0 ]]; then
+    echo "错误: Prompt 生成失败" >&2
+    exit 1
 fi
-
-# 添加具体任务到prompt
-echo "" >> "$PROMPT_FILE"
-echo "## 生成任务" >> "$PROMPT_FILE"
-echo "" >> "$PROMPT_FILE"
-echo "请根据以上配置和人设，为话题「$TOPIC」生成一篇小红书内容。" >> "$PROMPT_FILE"
-echo "" >> "$PROMPT_FILE"
-echo "## 输出格式（严格遵守）" >> "$PROMPT_FILE"
-echo "" >> "$PROMPT_FILE"
-echo "【主标题】（简短有力，4-8字）" >> "$PROMPT_FILE"
-echo "【副标题】（吸引眼球，与主标题呼应，8-15字）" >> "$PROMPT_FILE"
-echo "" >> "$PROMPT_FILE"
-echo "正文内容..." >> "$PROMPT_FILE"
-echo "" >> "$PROMPT_FILE"
-echo "#话题标签" >> "$PROMPT_FILE"
-echo "" >> "$PROMPT_FILE"
-echo "## 标题要求" >> "$PROMPT_FILE"
-echo "- 主标题：简短有力，突出核心，4-8字" >> "$PROMPT_FILE"
-echo "- 副标题：与主标题呼应，制造悬念或突出价值，8-15字" >> "$PROMPT_FILE"
-echo "- 标题组合要有吸引力和点击欲" >> "$PROMPT_FILE"
-echo "" >> "$PROMPT_FILE"
-echo "## 正文要求" >> "$PROMPT_FILE"
-echo "1. 输出纯文本格式，不要使用Markdown加粗（**）" >> "$PROMPT_FILE"
-echo "2. 不要使用HTML标签" >> "$PROMPT_FILE"
-echo "3. 段落之间用空行分隔" >> "$PROMPT_FILE"
-echo "4. 严格遵守人设中的语气和风格要求" >> "$PROMPT_FILE"
-echo "5. 避免使用AI痕迹表达（如'值得注意的是'、'综上所述'等）" >> "$PROMPT_FILE"
 
 # 调用Claude API生成内容 - 使用构建好的 prompt
 echo "# 正在调用 Claude API 生成内容..." >&2
 
 # 读取构建的 prompt 并调用 Claude
 PROMPT_CONTENT=$(cat "$PROMPT_FILE")
-CONTENT=$(claude -p "$PROMPT_CONTENT" 2>/dev/null || echo "")
+CONTENT=$(claude --dangerously-skip-permissions -p "$PROMPT_CONTENT" 2>/dev/null || echo "")
 
 # 清理prompt文件
 rm -f "$PROMPT_FILE"
@@ -145,9 +63,18 @@ rm -f "$PROMPT_FILE"
 if [[ -z "$CONTENT" ]] || [[ "$CONTENT" == *"我注意到你提供的话题是空的"* ]] || [[ "$CONTENT" == *"请提供产品名称"* ]]; then
     echo "# Claude API 调用失败，使用备用模板" >&2
 
-    # 读取标题模板生成标题
-    TITLE_TEMPLATE=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG')); print(c.get('title_template', {}).get('patterns', ['{topic}评测'])[0])")
-    TITLE=$(echo "$TITLE_TEMPLATE" | sed "s/{topic}/$TOPIC/g" | cut -c1-20)
+    # 生成备用标题（使用话题前缀）
+    case "$VERTICAL" in
+        stock)
+            TITLE="${TOPIC:0:8}值得买吗"
+            ;;
+        tech|beauty|finance)
+            TITLE="${TOPIC:0:10}深度解析"
+            ;;
+        *)
+            TITLE="${TOPIC:0:10}分析"
+            ;;
+    esac
 
     # 生成更好的备用内容
     case "$VERTICAL" in
@@ -210,6 +137,31 @@ EOF
 ⚠️ 以上仅供参考，市场有风险，投资需谨慎
 
 #股票 #投资 #量化
+EOF
+            ;;
+        stock)
+            cat > "$CONTENT_OUTPUT" << EOF
+# $TITLE
+
+直接说结论。
+
+关于$TOPIC，需要从数据和业务两个角度看。
+
+最新财报数据是基础，营收、利润、增长率这些硬指标摆在那。超预期还是不及预期，市场反应不会骗人。
+
+核心业务分析看增长驱动。哪个业务在涨，为什么，护城河够不够深。行业地位决定定价权，龙头才有超额收益。
+
+估值位置决定安全边际。PE/PB 历史分位，和同行比贵不贵。便宜不是买入理由，但好价格需要耐心等。
+
+风险不能不提。行业风险、公司风险、估值风险，实事求是。
+
+操作建议：买入/持有/卖出，给明确判断，不骑墙。
+
+深度个股分析，持续分享，每次原创。
+
+⚠️ 以上分析仅供参考，不构成投资建议
+
+#股票 #个股分析 #财报 #投资
 EOF
             ;;
         *)

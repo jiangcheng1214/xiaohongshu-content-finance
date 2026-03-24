@@ -1,0 +1,210 @@
+{
+  "code": "stock",
+  "name": "个股分析",
+  "generation_mode": "strict",
+  "persona_id": "stock",
+  "keywords": [
+    "财报",
+    "估值",
+    "PE",
+    "PB",
+    "ROE",
+    "营收",
+    "利润",
+    "净利润",
+    "同比增长",
+    "环比增长",
+    "行业龙头",
+    "市值",
+    "市盈率",
+    "市净率",
+    "股息率",
+    "增持",
+    "减持",
+    "持有",
+    "买入",
+    "卖出",
+    "目标价",
+    "止损",
+    "护城河",
+    "竞争优势",
+    "估值分析",
+    "技术分析",
+    "基本面",
+    "个股",
+    "股票",
+    "投资",
+    "价值投资",
+    "成长股",
+    "蓝筹股",
+    "龙头股"
+  ],
+  "content_structure": {
+    "min_length": 600,
+    "max_length": 1000,
+    "paragraphs": [
+      {
+        "order": 1,
+        "type": "hook",
+        "name": "开篇观点",
+        "length": "1-2句",
+        "instruction": "直接给出对该股票的核心判断（看好/看空/中性），开门见山"
+      },
+      {
+        "order": 2,
+        "type": "body",
+        "name": "公司概况",
+        "length": "40-60字",
+        "instruction": "公司做什么的，行业地位，主营业务一句话说清楚"
+      },
+      {
+        "order": 3,
+        "type": "body",
+        "name": "最新财报",
+        "length": "60-100字",
+        "instruction": "最新季度营收、利润、同比增长率，超预期还是不及预期，关键数据摆出来"
+      },
+      {
+        "order": 4,
+        "type": "body",
+        "name": "核心业务分析",
+        "length": "80-120字",
+        "instruction": "主要收入构成，哪个业务在增长，增长驱动因素是什么，商业模式怎么样"
+      },
+      {
+        "order": 5,
+        "type": "body",
+        "name": "行业地位与竞争",
+        "length": "60-100字",
+        "instruction": "在行业中的排名，主要竞争对手是谁，护城河是什么，有没有定价权"
+      },
+      {
+        "order": 6,
+        "type": "body",
+        "name": "估值分析",
+        "length": "60-100字",
+        "instruction": "当前PE/PB，历史分位，与同行对比，贵还是便宜，安全边际在哪里"
+      },
+      {
+        "order": 7,
+        "type": "body",
+        "name": "风险因素",
+        "length": "40-60字",
+        "instruction": "主要风险点，行业风险、公司风险、估值风险，实事求是"
+      },
+      {
+        "order": 8,
+        "type": "body",
+        "name": "操作建议",
+        "length": "40-60字",
+        "instruction": "买入/持有/卖出建议，目标价位区间，止损位置，给明确判断"
+      },
+      {
+        "order": 9,
+        "type": "cta",
+        "name": "关注引导",
+        "length": "1-2句",
+        "instruction": "深度个股分析，持续分享，每次原创，关注不错过"
+      },
+      {
+        "order": 10,
+        "type": "tags",
+        "name": "话题标签",
+        "count": "5-8",
+        "instruction": "#股票 #个股分析 #财报 #投资 #价值分析 #公司研究 等"
+      }
+    ],
+    "requires_risk_warning": true,
+    "requires_data_timestamp": true,
+    "requires_sources": true
+  },
+  "title_guidance": {
+    "main_title": {
+      "length": "4-8字",
+      "style": "简短有力，吸引点击",
+      "format": "纯文字，不包含冒号（：）等标点符号",
+      "purpose": "突出核心观点或制造悬念",
+      "examples": [
+        "NVDA值得买吗",
+        "财报超预期",
+        "这波能追吗",
+        "估值泡沫来了",
+        "机会还是陷阱"
+      ]
+    },
+    "subtitle": {
+      "length": "8-15字",
+      "style": "补充说明，呼应主标题",
+      "format": "完整句子，可以有标点",
+      "purpose": "提供更多上下文或制造阅读欲望",
+      "examples": [
+        "AI芯片龙头深度解析",
+        "业绩炸裂股价起飞",
+        "PE已经杀到历史低位",
+        "看懂商业模式再决定"
+      ]
+    }
+  },
+  "cover_config": {
+    "logo_file": "default.png",
+    "default_subtitle": "个股深度分析",
+    "background_prompt_template": "An ultra-detailed, hyper-realistic Isometric Diorama 3D miniature scene, showcasing a luxurious cyber-financial aesthetic with a premium studio solid color background.\n\n1. Visual Anchor:\nThe centerpiece is a highly intricate miniature version of {product_description}, featuring glossy materials, subtle glowing neon edge highlights, and the company's 3D Logo hovering elegantly on top with a holographic glow. The podium base of the diorama is a metallic high-tech trading platform with subtle glowing data streams.\n\n2. Core Information Component (The Calendar):\nIn the front corner of the futuristic base, there's a heavily detailed realistic 3D Calendar Block in {calendar_color}. The surface has brushed metal textures and the date '{date}' is deeply engraved with edge lighting.\n\n3. Environmental Atmosphere:\nThe overall lighting style is {lighting_style}. Add volumetric fog, ray-traced reflections, soft ambient occlusion, cinematic studio lighting, and depth of field to create a majestic and premium financial atmosphere.\n\n4. Floating Information Layer (UI Overlay):\nAbove and around the model, synthesize AR-style minimalist glassmorphism interface labels:\n- Main prominent label: '{stock_code} {price}'\n- Secondary dynamic label: '{change}'\n- Bottom elegant note: '{reason}'\n\n3:4 portrait ratio, 8k resolution, Unreal Engine 5 render, Octane Render, masterful composition, rich textures, clean professional design, STRICTLY NO random gibberish text in the scene itself.",
+    "prompt_variables": {
+      "stock_code": {
+        "source": "extract_from_topic",
+        "extract": "code",
+        "description": "股票代码"
+      },
+      "date": {
+        "source": "date",
+        "format": "%b %d",
+        "description": "当前日期"
+      },
+      "price": {
+        "source": "web_search",
+        "query": "{stock_code} stock price today",
+        "default": "---",
+        "description": "The current stock price of the company in USD, formatted properly with $ sign (e.g. $150.25)"
+      },
+      "change": {
+        "source": "web_search",
+        "query": "{stock_code} stock percent change today",
+        "default": "0.0%",
+        "description": "Today's stock price percentage change. Must strictly include the '+' or '-' sign to indicate the direction, followed by the number and '%' (e.g. +1.5% or -2.3%)"
+      },
+      "reason": {
+        "source": "web_search",
+        "query": "{stock_code} stock news today reason",
+        "default": "Market Movement",
+        "description": "涨跌原因"
+      },
+      "product_description": {
+        "source": "llm_inference",
+        "inference_prompt": "Based on the stock code {stock_code}, describe the company's iconic product or building in 3D isometric style (max 10 words)",
+        "depends_on": ["stock_code"],
+        "default": "{stock_code} company headquarters building",
+        "description": "公司标志性产品描述"
+      },
+      "lighting_style": {
+        "source": "conditional",
+        "condition_var": "change",
+        "condition": "positive",
+        "true_value": "Warm Sunny Lighting with Green/Gold accents",
+        "false_value": "Cool Overcast Lighting with Red/Grey accents",
+        "default": "Neutral Lighting",
+        "depends_on": ["change"],
+        "description": "光照风格（根据涨跌）"
+      },
+      "calendar_color": {
+        "source": "conditional",
+        "condition_var": "change",
+        "condition": "positive",
+        "true_value": "Orange or White Block",
+        "false_value": "Dark Grey or Blue Block",
+        "default": "Grey Block",
+        "depends_on": ["change"],
+        "description": "日历颜色（根据涨跌）"
+      }
+    }
+  }
+}

@@ -119,19 +119,48 @@ fi
 # 第一步：生成背景图
 echo "# Generating background for vertical: $VERTICAL..." >&2
 
-# 构建 prompt - 使用 background_prompt_template
-PROMPT_TEMPLATE=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG')); print(c['cover_config'].get('background_prompt_template', ''))" 2>/dev/null || echo "")
+# 检查是否有动态变量配置
+HAS_VARIABLES=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG')); vars = c.get('cover_config', {}).get('prompt_variables', {}); print('yes' if vars else 'no')" 2>/dev/null || echo "no")
 
 TEMP_PROMPT=$(mktemp)
-if [[ -n "$PROMPT_TEMPLATE" ]]; then
-    # 使用配置中的完整 prompt 模板
-    echo "$PROMPT_TEMPLATE" > "$TEMP_PROMPT"
-    echo "# 使用垂类专属 prompt 模板" >&2
+
+# 从 session.json 读取 topic
+TOPIC=""
+SESSION_JSON=$(dirname "$OUTPUT")/session.json
+if [[ -f "$SESSION_JSON" ]]; then
+    TOPIC=$(python3 -c "import json; print(json.load(open('$SESSION_JSON')).get('topic', ''))" 2>/dev/null || echo "")
+fi
+
+if [[ "$HAS_VARIABLES" == "yes" ]]; then
+    # 使用动态 prompt 生成器
+    echo "# 检测到 prompt_variables 配置，使用动态生成..." >&2
+    python3 "$SCRIPT_DIR/build_dynamic_cover_prompt.py" "$VERTICAL_CONFIG" "$TOPIC" "$VERTICAL" > "$TEMP_PROMPT" 2>&1
+    # 移除 stderr 输出的调试信息，只保留 prompt 内容
+    grep -v "^#" "$TEMP_PROMPT" > "${TEMP_PROMPT}.tmp" 2>/dev/null || true
+    if [[ -f "${TEMP_PROMPT}.tmp" && -s "${TEMP_PROMPT}.tmp" ]]; then
+        mv "${TEMP_PROMPT}.tmp" "$TEMP_PROMPT"
+        echo "# ✓ 动态 prompt 生成成功" >&2
+    else
+        echo "# ⚠️ 动态 prompt 生成失败，使用备用模板" >&2
+        get_fallback_prompt
+    fi
 else
-    # 回退到旧的方式
+    # 使用静态 prompt 模板
+    PROMPT_TEMPLATE=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG')); print(c['cover_config'].get('background_prompt_template', ''))" 2>/dev/null || echo "")
+
+    if [[ -n "$PROMPT_TEMPLATE" ]]; then
+        echo "$PROMPT_TEMPLATE" > "$TEMP_PROMPT"
+        echo "# 使用静态 prompt 模板" >&2
+    else
+        get_fallback_prompt
+    fi
+fi
+
+# 备用 prompt 函数
+get_fallback_prompt() {
     echo "$STYLE_PREFIX, clean modern background, 3:4 portrait, no text" > "$TEMP_PROMPT"
     echo "# 使用默认 prompt" >&2
-fi
+}
 
 echo "# Prompt: $(cat $TEMP_PROMPT)" >&2
 echo "# Logo: $(basename $LOGO_PATH)" >&2
@@ -179,16 +208,11 @@ fi
 
 rm -f /tmp/cover_gen_output.txt
 
-# 保存原始背景图副本
-BG_BACKUP="${OUTPUT%.png}_bg.png"
-cp "$TEMP_BG" "$BG_BACKUP"
-
-# 第二步：调用 add_overlay.sh 添加文字叠加
-echo "# Adding text overlay..." >&2
-"$SCRIPT_DIR/add_overlay.sh" "$TEMP_BG" "$TITLE" "$SUBTITLE" "$OUTPUT" "$LOGO_PATH" "$VERTICAL"
+# 直接使用背景图作为最终输出（不再添加文字叠加）
+mv "$TEMP_BG" "$OUTPUT"
 
 # 清理临时文件
-rm -f "$TEMP_BG" "$TEMP_PROMPT"
+rm -f "$TEMP_PROMPT"
 
 # 输出封面路径
 echo "$OUTPUT"
