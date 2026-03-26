@@ -68,13 +68,22 @@ case "$ACTION" in
         echo "" >&2
 
         # 步骤1: 内容生成
-        echo "📝 步骤 1/2: 内容生成" >&2
+        echo "📝 步骤 1/3: 内容生成" >&2
         "$SCRIPT_DIR/session_generate_content.sh" "$SESSION_DIR"
         echo "" >&2
 
         # 步骤2: 封面生成
-        echo "🎨 步骤 2/2: 封面生成" >&2
+        echo "🎨 步骤 2/3: 封面生成" >&2
         "$SCRIPT_DIR/session_generate_cover.sh" "$SESSION_DIR"
+        echo "" >&2
+
+        # 步骤3: 发送 Telegram
+        echo "📤 步骤 3/3: 发送到 Telegram" >&2
+        CONTENT=$(cat "$SESSION_DIR/content.md")
+        COVER="$SESSION_DIR/cover.png"
+        IMAGES="$SESSION_DIR/images"
+        TITLE=$(grep '^# ' "$SESSION_DIR/content.md" | head -1 | sed 's/^# //')
+        "$SCRIPT_DIR/send_telegram.sh" "$TITLE" "$CONTENT" "$COVER" "$IMAGES"
         echo "" >&2
 
         # 显示结果

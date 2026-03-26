@@ -145,16 +145,16 @@
       },
       "price": {
         "source": "web_search",
-        "query": "{stock_code} current live real-time stock price US market now",
+        "query": "{stock_code} stock price today premarket afterhours",
         "default": "---",
-        "description": "The current live stock price of the company in USD (e.g. $150.25). Return EXACTLY the price value only."
+        "description": "The current live stock price of the company in USD (e.g. $150.25). Return EXACTLY the price value only with $ sign."
       },
       "change": {
         "source": "web_search",
-        "query": "What is the percentage change for {stock_code} stock today? Return ONLY the percentage like +1.5% or -2.3%, no dollar sign.",
+        "query": "{stock_code} stock today percent change premarket afterhours",
         "default": "0.0%",
         "extract_pattern": "[+-]?\\d+\\.?\\d*%",
-        "description": "Today's stock price percentage change. Format: +1.5% or -2.3%. NEVER return dollar amounts."
+        "description": "Today's stock price percentage change including premarket and afterhours. Format: +1.5% or -2.3%."
       },
       "trend_arrow": {
         "source": "conditional",
@@ -170,17 +170,17 @@
         "source": "conditional",
         "condition_var": "change",
         "condition": "positive",
-        "true_value": "CRITICAL COLOR RULE: The text for '{trend_arrow} {change}' MUST be rendered in Vibrant Neon Green (#00FF00) to signify growth.",
-        "false_value": "CRITICAL COLOR RULE: The text for '{trend_arrow} {change}' MUST be rendered in Bright Blood Red (#FF0000) to signify decline.",
+        "true_value": "CRITICAL COLOR RULE: The text for '{trend_arrow} {change}' MUST be rendered in Vibrant Green (#28b528) to signify growth.",
+        "false_value": "CRITICAL COLOR RULE: The text for '{trend_arrow} {change}' MUST be rendered in Blood Red (#ad0d0d) to signify decline.",
         "default": "",
         "depends_on": ["change"],
         "description": "根据涨跌设置文本颜色指令"
       },
       "reason": {
         "source": "web_search",
-        "query": "{stock_code} stock why moving today in Chinese (short phrase)",
+        "query": "{stock_code} stock news today catalyst",
         "default": "市场波动",
-        "description": "请用3-8个中文字符简短总结今日该股票涨跌的直接原因。不要回复英文摘要或任何前缀。"
+        "description": "请用3-8个中文字符简短总结今日该股票涨跌的直接原因"
       },
       "product_name": {
         "source": "llm_inference",

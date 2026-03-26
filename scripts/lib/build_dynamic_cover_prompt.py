@@ -55,8 +55,13 @@ def search_variable(variable_config, context):
     query = query_template.format(**context)
     description = variable_config.get('description', '')
 
+    # 获取当前日期，确保搜索最新数据
+    today = datetime.now().strftime('%Y-%m-%d')
+
     # 直接使用有搜索能力的 Claude 获取并提取答案
     llm_prompt = f"""Search the live web for the following query: '{query}'
+
+IMPORTANT: Today's date is {today}. Make sure you get the MOST RECENT data from today ({today}).
 
 Based on the live search results, extract exactly the value for: {description}
 
@@ -72,6 +77,16 @@ CRITICAL RULES:
 
     # 强制清理：截断过长回复，防止污染生图 prompt
     if result:
+        # 检查是否是无效结果（包含"未找到"、"not found"、"无法获取"等）
+        invalid_patterns = [
+            r'未找到', r'找不到', r'无法获取', r'not found', r'unable to find',
+            r'could not find', r'no data', r'搜索结果主要显示', r'请提供具体日期'
+        ]
+        for pattern in invalid_patterns:
+            if re.search(pattern, result, re.IGNORECASE):
+                # 使用默认值，而不是无效的搜索结果
+                return variable_config.get('default', '市场波动')
+
         # 如果有提取模式，优先使用正则匹配提取
         extract_pattern = variable_config.get('extract_pattern', '')
         if extract_pattern:
@@ -138,6 +153,10 @@ CRITICAL RULES:
         result = result.split('\n')[0].strip()
         if len(result) > 80:
             result = result[:80]
+
+    # 如果结果为空或无效，返回默认值
+    if not result or len(result) < 2:
+        return variable_config.get('default', '市场波动')
 
     return result
 
