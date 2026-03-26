@@ -102,7 +102,8 @@ case "$ACTION" in
         "$SCRIPT_DIR/send_telegram.sh" "$TITLE" "$CONTENT" "$COVER" "$IMAGES"
 
         # 更新session
-        python3 << EOF
+        PYTHONIOENCODING=utf-8 python3 << EOF
+# -*- coding: utf-8 -*-
 import json
 with open('$SESSION_DIR/session.json') as f:
     s = json.load(f)

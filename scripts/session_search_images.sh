@@ -98,7 +98,8 @@ if [[ $IMAGE_COUNT -eq 0 ]]; then
 fi
 
 # 更新 session.json
-python3 << EOF
+PYTHONIOENCODING=utf-8 python3 << EOF
+# -*- coding: utf-8 -*-
 import json
 from datetime import datetime
 

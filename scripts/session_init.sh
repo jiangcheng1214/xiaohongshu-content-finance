@@ -34,7 +34,8 @@ fi
 mkdir -p "$SESSION_DIR"
 
 # 生成session.json
-python3 << EOF
+PYTHONIOENCODING=utf-8 python3 << EOF
+# -*- coding: utf-8 -*-
 import json
 from datetime import datetime, timezone
 

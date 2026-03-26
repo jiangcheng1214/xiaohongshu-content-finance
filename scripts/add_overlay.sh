@@ -35,7 +35,8 @@ get_font_style() {
         return
     fi
 
-    python3 -c "
+    PYTHONIOENCODING=utf-8 python3 -c "
+# -*- coding: utf-8 -*-
 import json
 try:
     with open('$config') as f:

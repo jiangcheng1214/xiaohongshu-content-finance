@@ -19,7 +19,8 @@ if [[ ! -f "$SESSION_JSON" ]]; then
     exit 1
 fi
 
-python3 << EOF
+PYTHONIOENCODING=utf-8 python3 << EOF
+# -*- coding: utf-8 -*-
 import json
 import os
 

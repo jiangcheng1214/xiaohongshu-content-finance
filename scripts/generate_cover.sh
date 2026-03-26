@@ -34,7 +34,14 @@ if [[ -z "$VERTICAL" ]] || [[ -z "$TITLE" ]] || [[ -z "$OUTPUT" ]]; then
 fi
 
 TEMP_BG="/tmp/xhs_cover_bg_$(date +%s).png"
-NANO_BANANA_SCRIPT="/opt/homebrew/lib/node_modules/openclaw/skills/nano-banana-pro/scripts/generate_image.py"
+
+# 检测 nano-banana 命令路径
+NANO_BANANA_CMD=""
+if command -v nano-banana &> /dev/null; then
+    NANO_BANANA_CMD="$(command -v nano-banana)"
+elif [[ -f "$HOME/.bun/bin/nano-banana" ]]; then
+    NANO_BANANA_CMD="$HOME/.bun/bin/nano-banana"
+fi
 
 # 技能目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -169,8 +176,16 @@ echo "# Subtitle: ${SUBTITLE}" >&2
 # 尝试生成背景图 - 使用 nano banana pro
 echo "# 调用 nano banana pro 生成背景..." >&2
 
-# 构建 API 命令
-API_CMD="uv run $NANO_BANANA_SCRIPT --prompt \"$(cat $TEMP_PROMPT)\" --filename \"$TEMP_BG\" --aspect-ratio 3:4 --resolution 1K"
+# 构建 API 命令（使用 nano-banana CLI）
+if [[ -z "$NANO_BANANA_CMD" ]]; then
+    echo "# ✗ 错误: nano-banana 命令未找到" >&2
+    echo "# 请安装: bun install -g nano-banana" >&2
+    rm -f "$TEMP_PROMPT"
+    exit 1
+fi
+
+PROMPT_CONTENT=$(cat "$TEMP_PROMPT")
+API_CMD="$NANO_BANANA_CMD \"$PROMPT_CONTENT\" -o \"${TEMP_BG%.png}\" -a 3:4 -s 1K"
 
 # 添加 API key（如果存在）
 if [[ -n "$API_KEY" ]]; then
@@ -200,8 +215,8 @@ else
     echo "# 输出:" >&2
     cat /tmp/cover_gen_output.txt >&2
     echo "" >&2
-    echo "# 提示: 请检查 nano banana pro 是否正确安装" >&2
-    echo "# 脚本路径: $NANO_BANANA_SCRIPT" >&2
+    echo "# 提示: 请检查 nano-banana 是否正确安装" >&2
+    echo "# 命令路径: $NANO_BANANA_CMD" >&2
     rm -f /tmp/cover_gen_output.txt
     exit 1
 fi

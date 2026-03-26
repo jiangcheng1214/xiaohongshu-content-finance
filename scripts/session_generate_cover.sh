@@ -29,7 +29,8 @@ PROMPT_TEMPLATE=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG'))
 
 # 【核心逻辑】从 session.json 读取 title 和 subtitle
 # 这两个字段由内容生成步骤负责写入
-TITLE_SUBTITLE=$(python3 - "$SESSION_DIR" "$TITLE" "$SUBTITLE" << 'PYEOF'
+TITLE_SUBTITLE=$(PYTHONIOENCODING=utf-8 python3 - "$SESSION_DIR" "$TITLE" "$SUBTITLE" << 'PYEOF'
+# -*- coding: utf-8 -*-
 import json
 import sys
 
@@ -91,7 +92,8 @@ if [[ -f "$COVER_OUTPUT" && $COVER_EXIT_CODE -eq 0 ]]; then
     FILE_SIZE=$(stat -f%z "$COVER_OUTPUT" 2>/dev/null || stat -c%s "$COVER_OUTPUT" 2>/dev/null || echo "0")
 
     # 更新 session.json，包含 debug 信息
-    python3 - "$SESSION_DIR" "$VERTICAL" "$TITLE" "$SUBTITLE" "$PROMPT_TEMPLATE" "$COVER_OUTPUT" "$FILE_SIZE" "$COVER_EXIT_CODE" "$COVER_LOG" << 'PYEOF'
+    PYTHONIOENCODING=utf-8 python3 - "$SESSION_DIR" "$VERTICAL" "$TITLE" "$SUBTITLE" "$PROMPT_TEMPLATE" "$COVER_OUTPUT" "$FILE_SIZE" "$COVER_EXIT_CODE" "$COVER_LOG" << 'PYEOF'
+# -*- coding: utf-8 -*-
 import json
 import sys
 from datetime import datetime, timezone
@@ -135,7 +137,8 @@ PYEOF
     echo "$COVER_OUTPUT"
 else
     # 即使失败也记录 debug 信息
-    python3 - "$SESSION_DIR" "$VERTICAL" "$TITLE" "$SUBTITLE" "$PROMPT_TEMPLATE" "" "" "$COVER_EXIT_CODE" "$COVER_LOG" << 'PYEOF'
+    PYTHONIOENCODING=utf-8 python3 - "$SESSION_DIR" "$VERTICAL" "$TITLE" "$SUBTITLE" "$PROMPT_TEMPLATE" "" "" "$COVER_EXIT_CODE" "$COVER_LOG" << 'PYEOF'
+# -*- coding: utf-8 -*-
 import json
 import sys
 from datetime import datetime, timezone

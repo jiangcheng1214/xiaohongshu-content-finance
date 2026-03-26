@@ -242,7 +242,8 @@ mv "$TEMP_CONTENT" "$CONTENT_OUTPUT"
 FULL_TITLE=$(grep '^# ' "$CONTENT_OUTPUT" | head -1 | sed 's/^# //' || echo "$MAIN_TITLE")
 
 # 使用 Python 更新 session.json，确保正确转义
-python3 - "$SESSION_DIR" "$VERTICAL" "$TOPIC" "$FULL_TITLE" "$MAIN_TITLE" "$SUBTITLE" "$PERSONA_FILE" "$CONTENT_OUTPUT" "$CONTENT_LENGTH" "$WORD_COUNT" "$GENERATION_MODE" << 'PYEOF'
+PYTHONIOENCODING=utf-8 python3 - "$SESSION_DIR" "$VERTICAL" "$TOPIC" "$FULL_TITLE" "$MAIN_TITLE" "$SUBTITLE" "$PERSONA_FILE" "$CONTENT_OUTPUT" "$CONTENT_LENGTH" "$WORD_COUNT" "$GENERATION_MODE" << 'PYEOF'
+# -*- coding: utf-8 -*-
 import json
 import sys
 from datetime import datetime, timezone
