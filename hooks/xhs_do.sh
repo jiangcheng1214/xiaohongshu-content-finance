@@ -39,10 +39,13 @@ echo "" >&2
 # 直接调用工作流，不经过AI解读
 SESSION_DIR=$("$SCRIPT_DIR/xhs_generate.sh" "$VERTICAL" "$TOPIC" --all 2>&1)
 
-# 提取session目录
-SESSION_PATH=$(echo "$SESSION_DIR" | grep -o '/Users/[^[:space:]]*xhs_session_[^[:space:]]*' | head -1)
+# 提取session目录 - 增强 robustness
+SESSION_PATH=$(echo "$SESSION_DIR" | grep -o '/Users/[^[:space:]]*xhs_session_[^/[:space:]]*' | head -1)
 
 if [[ -d "$SESSION_PATH" ]]; then
+    # 确保 SESSION_PATH 是绝对路径且已经展开
+    SESSION_PATH=$(cd "$SESSION_PATH" && pwd)
+    
     echo "" >&2
     echo "# === 生成完成 ===" >&2
     echo "# Session: $SESSION_PATH" >&2
@@ -53,16 +56,18 @@ if [[ -d "$SESSION_PATH" ]]; then
     echo "# 标题: $TITLE" >&2
     echo "" >&2
 
-    # 询问是否发送
-    echo "要发送到Telegram吗？执行:" >&2
-    echo "  \"$SCRIPT_DIR/send_telegram.sh\" \\"
-    echo "    \"$TITLE\" \\"
-    echo "    \"\$(cat '$SESSION_PATH/content.md')\" \\"
-    echo "    \"$SESSION_PATH/cover.png\" \\"
-    echo "    \"$SESSION_PATH/images\"" >&2
+    # 获取完整正文（不含标题行）用于发送
+    # CONTENT_BODY=$(sed '1d' "$SESSION_PATH/content.md")
+    CONTENT_FULL=$(cat "$SESSION_PATH/content.md")
+
+    # 自动发送到 Telegram
+    echo "# 正在自动发送图文到 Telegram..." >&2
+    # 关键修复：确保传递给 send_telegram.sh 的是真实的绝对文件路径
+    "$SCRIPT_DIR/send_telegram.sh" "$TITLE" "$CONTENT_FULL" "$SESSION_PATH/cover.png" "$SESSION_PATH/images"
 
     echo "$SESSION_PATH"
 else
     echo "# ✗ 生成失败" >&2
+    echo "# 调试输出: $SESSION_DIR" >&2
     exit 1
 fi

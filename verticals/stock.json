@@ -111,44 +111,27 @@
         "type": "tags",
         "name": "话题标签",
         "count": "5-8",
-        "instruction": "#股票 #个股分析 #财报 #投资 #价值分析 #公司研究 等"
+        "instruction": "#股票 #个股分析 #财报 #投资 #价值投资"
       }
     ],
     "requires_risk_warning": true,
     "requires_data_timestamp": true,
     "requires_sources": true
   },
-  "title_guidance": {
-    "main_title": {
-      "length": "4-8字",
-      "style": "简短有力，吸引点击",
-      "format": "纯文字，不包含冒号（：）等标点符号",
-      "purpose": "突出核心观点或制造悬念",
-      "examples": [
-        "NVDA值得买吗",
-        "财报超预期",
-        "这波能追吗",
-        "估值泡沫来了",
-        "机会还是陷阱"
-      ]
-    },
-    "subtitle": {
-      "length": "8-15字",
-      "style": "补充说明，呼应主标题",
-      "format": "完整句子，可以有标点",
-      "purpose": "提供更多上下文或制造阅读欲望",
-      "examples": [
-        "AI芯片龙头深度解析",
-        "业绩炸裂股价起飞",
-        "PE已经杀到历史低位",
-        "看懂商业模式再决定"
-      ]
-    }
+  "title_template": {
+    "patterns": [
+      "{topic}：{核心观点}",
+      "{topic}：{关键词}解析",
+      "说人话：{核心观点}"
+    ],
+    "max_length": 20,
+    "style": "直接观点 + 关键信息",
+    "separator": "："
   },
   "cover_config": {
     "logo_file": "default.png",
-    "default_subtitle": "个股深度分析",
-    "background_prompt_template": "An ultra-detailed, hyper-realistic Isometric Diorama 3D miniature scene, showcasing a luxurious cyber-financial aesthetic with a premium studio solid color background.\n\n1. Visual Anchor:\nThe centerpiece is a highly intricate miniature version of {product_description}, featuring glossy materials, subtle glowing neon edge highlights, and the company's 3D Logo hovering elegantly on top with a holographic glow. The podium base of the diorama is a metallic high-tech trading platform with subtle glowing data streams.\n\n2. Core Information Component (The Calendar):\nIn the front corner of the futuristic base, there's a heavily detailed realistic 3D Calendar Block in {calendar_color}. The surface has brushed metal textures and the date '{date}' is deeply engraved with edge lighting.\n\n3. Environmental Atmosphere:\nThe overall lighting style is {lighting_style}. Add volumetric fog, ray-traced reflections, soft ambient occlusion, cinematic studio lighting, and depth of field to create a majestic and premium financial atmosphere.\n\n4. Floating Information Layer (UI Overlay):\nAbove and around the model, synthesize AR-style minimalist glassmorphism interface labels:\n- Main prominent label: '{stock_code} {price}'\n- Secondary dynamic label: '{change}'\n- Bottom elegant note: '{reason}'\n\n3:4 portrait ratio, 8k resolution, Unreal Engine 5 render, Octane Render, masterful composition, rich textures, clean professional design, STRICTLY NO random gibberish text in the scene itself.",
+    "aspect_ratio": "1:1",
+    "background_prompt_template": "A cute, refined Isometric Diorama 3D miniature illustration, pure soft solid color background, claymorphism and smooth 3D render style.\n\n1. Visual Anchor:\nThe centerpiece is a 3D miniature BUILDING whose architectural shape is designed to look like the company's MOST ICONIC flagship {product_name}. Place the company's 3D Logo prominently on the building exterior. CRITICAL: There must be NO OTHER TEXT, NO LETTERS, and NO LABELS on the building itself except the small prominent company logo. The base is surrounded by small decorative elements like tiny miniature workers, stylized plants/leaves, rocks, and 3D gold coins.\n\n2. Core Information Component (The Calendar):\nIn the front corner of the diorama base, there's a realistic but cute 3D Calendar Block in {calendar_color}. The date '{date}' is perfectly and clearly engraved on the calendar block.\n\n3. Environmental Atmosphere:\nThe overall lighting and environment style is: {lighting_style}\n\n4. Floating Information Layer (UI Overlay):\nAbove and around the model, synthesize AR-style minimalist frosted glassmorphism UI labels (white glass bubbles with clean dark text). {color_context}\n- Top Main label: '{stock_code} {price}'\n- Secondary label underneath: '{trend_arrow} {change}'\n- Bottom wide label: 'AI Note: {reason}'\n\nCRITICAL: The change value MUST be displayed as percentage format like +1.5% or -2.3%, NEVER with a dollar sign.\n\n1:1 square ratio, 8k resolution, C4D, Octane Render, soft studio shadows, harmonious composition, extremely high quality adorable 3D UI design, STRICTLY follow the exact text labels and color instructions provided.",
     "prompt_variables": {
       "stock_code": {
         "source": "extract_from_topic",
@@ -162,35 +145,56 @@
       },
       "price": {
         "source": "web_search",
-        "query": "{stock_code} stock price today",
+        "query": "{stock_code} current live real-time stock price US market now",
         "default": "---",
-        "description": "The current stock price of the company in USD, formatted properly with $ sign (e.g. $150.25)"
+        "description": "The current live stock price of the company in USD (e.g. $150.25). Return EXACTLY the price value only."
       },
       "change": {
         "source": "web_search",
-        "query": "{stock_code} stock percent change today",
+        "query": "What is the percentage change for {stock_code} stock today? Return ONLY the percentage like +1.5% or -2.3%, no dollar sign.",
         "default": "0.0%",
-        "description": "Today's stock price percentage change. Must strictly include the '+' or '-' sign to indicate the direction, followed by the number and '%' (e.g. +1.5% or -2.3%)"
+        "extract_pattern": "[+-]?\\d+\\.?\\d*%",
+        "description": "Today's stock price percentage change. Format: +1.5% or -2.3%. NEVER return dollar amounts."
+      },
+      "trend_arrow": {
+        "source": "conditional",
+        "condition_var": "change",
+        "condition": "positive",
+        "true_value": "▲",
+        "false_value": "▼",
+        "default": "▲",
+        "depends_on": ["change"],
+        "description": "涨跌箭头"
+      },
+      "color_context": {
+        "source": "conditional",
+        "condition_var": "change",
+        "condition": "positive",
+        "true_value": "CRITICAL COLOR RULE: The text for '{trend_arrow} {change}' MUST be rendered in Vibrant Neon Green (#00FF00) to signify growth.",
+        "false_value": "CRITICAL COLOR RULE: The text for '{trend_arrow} {change}' MUST be rendered in Bright Blood Red (#FF0000) to signify decline.",
+        "default": "",
+        "depends_on": ["change"],
+        "description": "根据涨跌设置文本颜色指令"
       },
       "reason": {
         "source": "web_search",
-        "query": "{stock_code} stock news today reason",
-        "default": "Market Movement",
-        "description": "涨跌原因"
+        "query": "{stock_code} stock why moving today in Chinese (short phrase)",
+        "default": "市场波动",
+        "description": "请用3-8个中文字符简短总结今日该股票涨跌的直接原因。不要回复英文摘要或任何前缀。"
       },
-      "product_description": {
+      "product_name": {
         "source": "llm_inference",
-        "inference_prompt": "Based on the stock code {stock_code}, describe the company's iconic product or building in 3D isometric style (max 10 words)",
+        "inference_prompt": "What is the single most iconic flagship hardware product for the company with stock code {stock_code}? Return only the product name in 1-3 words.",
         "depends_on": ["stock_code"],
-        "default": "{stock_code} company headquarters building",
-        "description": "公司标志性产品描述"
+        "default": "Flagship Product",
+        "description": "公司标志性拳头产品名称"
       },
       "lighting_style": {
         "source": "conditional",
         "condition_var": "change",
         "condition": "positive",
-        "true_value": "Warm Sunny Lighting with Green/Gold accents",
-        "false_value": "Cool Overcast Lighting with Red/Grey accents",
+        "true_value": "Warm Sunny Lighting (Green/Gold accents).",
+        "false_value": "Cool Overcast Lighting (Red/Grey accents).",
         "default": "Neutral Lighting",
         "depends_on": ["change"],
         "description": "光照风格（根据涨跌）"

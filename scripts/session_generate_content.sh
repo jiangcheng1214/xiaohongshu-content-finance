@@ -43,7 +43,7 @@ CONTENT_OUTPUT="$SESSION_DIR/content.md"
 # 使用 Python 脚本加载模板并构建 prompt
 PROMPT_FILE=$(mktemp)
 PERSONA_ARG="${PERSONA_FILE:-None}"
-"$SCRIPT_DIR/build_prompt.py" "$VERTICAL_CONFIG" "$PERSONA_ARG" "$TOPIC" "$VERTICAL" > "$PROMPT_FILE"
+"$SCRIPT_DIR/lib/build_prompt.py" "$VERTICAL_CONFIG" "$PERSONA_ARG" "$TOPIC" "$VERTICAL" > "$PROMPT_FILE"
 if [[ $? -ne 0 ]]; then
     echo "错误: Prompt 生成失败" >&2
     exit 1
@@ -219,13 +219,18 @@ GENERATION_MODE=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG'))
 MAIN_TITLE=$(grep '^【主标题】' "$CONTENT_OUTPUT" | sed 's/^【主标题】//' | head -1)
 SUBTITLE=$(grep '^【副标题】' "$CONTENT_OUTPUT" | sed 's/^【副标题】//' | head -1)
 
-# 验证提取结果 - 必须 LLM 正确生成，不使用 fallback
+# 如果正则提取失败，尝试从前两行直接提取（降级方案）
+if [[ -z "$MAIN_TITLE" ]]; then
+    MAIN_TITLE=$(head -n 5 "$CONTENT_OUTPUT" | grep -v '^$' | head -n 1 | sed 's/^[#*【 ]*//;s/[#*】 ]*$//')
+fi
+if [[ -z "$SUBTITLE" ]]; then
+    SUBTITLE=$(head -n 5 "$CONTENT_OUTPUT" | grep -v '^$' | sed -n '2p' | sed 's/^[#*【 ]*//;s/[#*】 ]*$//')
+fi
+
+# 验证提取结果 - 必须要有标题，否则报错
 if [[ -z "$MAIN_TITLE" ]] || [[ -z "$SUBTITLE" ]]; then
-    echo "# ✗ 错误: LLM 未按格式输出主标题和副标题" >&2
-    echo "# 请检查 prompt 或重试" >&2
-    echo "# 要求格式：" >&2
-    echo "# 【主标题】xxxxx" >&2
-    echo "# 【副标题】xxxxx" >&2
+    echo "# ✗ 错误: 无法解析生成内容中的主标题和副标题" >&2
+    echo "# 请检查生成格式，预期为前两行或包含【主标题】【副标题】" >&2
     exit 1
 fi
 

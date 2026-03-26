@@ -33,11 +33,10 @@ if [[ -z "$VERTICAL" ]] || [[ -z "$TITLE" ]] || [[ -z "$OUTPUT" ]]; then
     exit 1
 fi
 
-TEMP_BG="/tmp/xhs_cover_bg_$(date +%s).png"
-NANO_BANANA_SCRIPT="/opt/homebrew/lib/node_modules/openclaw/skills/nano-banana-pro/scripts/generate_image.py"
-
 # 技能目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMP_BG="/tmp/xhs_cover_bg_$(date +%s).png"
+NANO_BANANA_SCRIPT="$SCRIPT_DIR/lib/generate_image.py"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # 加载垂类配置
@@ -134,7 +133,7 @@ fi
 if [[ "$HAS_VARIABLES" == "yes" ]]; then
     # 使用动态 prompt 生成器
     echo "# 检测到 prompt_variables 配置，使用动态生成..." >&2
-    python3 "$SCRIPT_DIR/build_dynamic_cover_prompt.py" "$VERTICAL_CONFIG" "$TOPIC" "$VERTICAL" > "$TEMP_PROMPT" 2>&1
+    python3 "$SCRIPT_DIR/lib/build_dynamic_cover_prompt.py" "$VERTICAL_CONFIG" "$TOPIC" "$VERTICAL" > "$TEMP_PROMPT" 2>&1
     # 移除 stderr 输出的调试信息，只保留 prompt 内容
     grep -v "^#" "$TEMP_PROMPT" > "${TEMP_PROMPT}.tmp" 2>/dev/null || true
     if [[ -f "${TEMP_PROMPT}.tmp" && -s "${TEMP_PROMPT}.tmp" ]]; then
@@ -169,18 +168,33 @@ echo "# Subtitle: ${SUBTITLE}" >&2
 # 尝试生成背景图 - 使用 nano banana pro
 echo "# 调用 nano banana pro 生成背景..." >&2
 
-# 构建 API 命令
-API_CMD="uv run $NANO_BANANA_SCRIPT --prompt \"$(cat $TEMP_PROMPT)\" --filename \"$TEMP_BG\" --aspect-ratio 3:4 --resolution 1K"
+# 获取 aspect_ratio，默认 3:4
+ASPECT_RATIO=$(python3 -c "import json; c=json.load(open('$VERTICAL_CONFIG')); print(c.get('cover_config', {}).get('aspect_ratio', '3:4'))" 2>/dev/null || echo "3:4")
+echo "# Aspect Ratio: $ASPECT_RATIO" >&2
 
-# 添加 API key（如果存在）
-if [[ -n "$API_KEY" ]]; then
-    API_CMD="$API_CMD --api-key \"$API_KEY\""
-fi
+# 构建并执行 API 命令 - 使用 Python 避免 shell 引号问题
+echo "# 执行 nano banana pro 生图..." >&2
+python3 - "$NANO_BANANA_SCRIPT" "$TEMP_PROMPT" "$TEMP_BG" "$ASPECT_RATIO" "$API_KEY" << 'PYEOF'
+import subprocess, sys
 
-echo "# 执行: $API_CMD" >&2
+script = sys.argv[1]
+prompt_file = sys.argv[2]
+output_file = sys.argv[3]
+aspect_ratio = sys.argv[4]
+api_key = sys.argv[5] if len(sys.argv) > 5 else ""
 
-# 执行命令并捕获输出
-eval $API_CMD > /tmp/cover_gen_output.txt 2>&1
+with open(prompt_file) as f:
+    prompt = f.read().strip()
+
+cmd = ["uv", "run", script, "--prompt", prompt, "--filename", output_file, "--resolution", "1K"]
+if api_key:
+    cmd.extend(["--api-key", api_key])
+
+result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+with open("/tmp/cover_gen_output.txt", "w") as f:
+    f.write(result.stdout + "\n" + result.stderr)
+sys.exit(result.returncode)
+PYEOF
 API_EXIT_CODE=$?
 
 echo "# API 退出码: $API_EXIT_CODE" >&2
