@@ -7,6 +7,7 @@ Prompt 模板加载和变量替换
 import json
 import sys
 import os
+from datetime import datetime
 
 
 def load_vertical_config(config_path):
@@ -92,7 +93,64 @@ def generate_persona_section(persona_content):
     return f"## 人设规范\n{persona_content}"
 
 
-def render_template(template_path, vertical_config_section, persona_content, topic, vertical):
+def generate_search_instruction(vertical, topic):
+    """生成搜索指令 - 根据不同垂类生成精确的搜索查询"""
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+
+    instructions = {
+        'stock': f"""【🚨最高优先级指令：在动笔创作前，你必须调用你的 Web 联网搜索工具检索以下内容（必须按顺序执行）】
+
+第1步：核实股票代码有效性
+搜索查询："{topic} stock current status {current_year}"
+目的：确认该股票代码是否仍在交易，是否已被并购、退市或更名。如主体已变更，必须在内容中明确指出。
+
+第2步：获取最新行情和财报
+搜索查询："{topic} stock price today latest news earnings {current_year}"
+目的：获取今日股价、涨跌幅、最新季度财报数据
+
+第3步：获取最新催化剂
+搜索查询："{topic} stock news today catalyst {current_year}"
+目的：获取今日或本周影响股价的最新新闻、催化剂事件
+
+【关键要求】
+- 所有数据必须来自搜索结果，绝不允许编造股价、财报或新闻
+- 如搜索到主体变更（如并购、退市），必须在内容开头明确说明
+- 必须在内容中注明数据来源时间（如"截至{current_year}年X月X日"）""",
+
+        'finance': f"""【🚨最高优先级指令：在动笔创作前，你必须调用你的 Web 联网搜索工具检索以下内容】
+
+搜索查询："{topic} latest news today {current_year}"
+目的：获取关于"{topic}"的最新市场动态、数据或政策进展
+
+【关键要求】
+- 所有数据必须来自搜索结果的最新信息
+- 必须在内容中注明数据时间戳
+- 如无最新数据，请明确说明""",
+
+        'tech': f"""【🚨最高优先级指令：在动笔创作前，你必须调用你的 Web 联网搜索工具检索以下内容】
+
+搜索查询："{topic} review latest {current_year}"
+目的：获取关于"{topic}"的最新评测、参数或发布信息
+
+【关键要求】
+- 产品信息必须是最新的，如产品已更新换代，请说明当前版本
+- 价格信息仅供参考，请说明获取时间""",
+
+        'beauty': f"""【🚨最高优先级指令：在动笔创作前，你必须调用你的 Web 联网搜索工具检索以下内容】
+
+搜索查询："{topic} review latest {current_year}"
+目的：获取关于"{topic}"的最新测评、使用体验
+
+【关键要求】
+- 产品信息必须是最新的
+- 效果描述基于真实测评，非编造"""
+    }
+
+    return instructions.get(vertical, f"""【🚨最高优先级指令：在动笔创作前，你必须调用你的 Web 联网搜索工具检索 "{topic} latest {current_year}" 的最新信息】""")
+
+
+def render_template(template_path, vertical_config_section, persona_content, topic, vertical, search_instruction):
     """渲染模板"""
     with open(template_path, 'r') as f:
         template = f.read()
@@ -103,6 +161,7 @@ def render_template(template_path, vertical_config_section, persona_content, top
         '{{PERSONA_CONTENT}}': persona_content,
         '{{TOPIC}}': topic,
         '{{VERTICAL}}': vertical,
+        '{{SEARCH_INSTRUCTION}}': search_instruction,
     }
 
     for key, value in replacements.items():
@@ -129,6 +188,7 @@ def main():
     # 生成各部分内容
     vertical_config_section = generate_vertical_config_section(config)
     persona_section = generate_persona_section(persona_content)
+    search_instruction = generate_search_instruction(vertical, topic)
 
     # 确定模板文件
     if not template_file or not os.path.exists(template_file):
@@ -148,7 +208,7 @@ def main():
 
     # 渲染并输出
     if os.path.exists(template_file):
-        result = render_template(template_file, vertical_config_section, persona_section, topic, vertical)
+        result = render_template(template_file, vertical_config_section, persona_section, topic, vertical, search_instruction)
         print(result)
     else:
         print(f"错误: 模板文件不存在: {template_file}", file=sys.stderr)

@@ -40,83 +40,52 @@
     "龙头股"
   ],
   "content_structure": {
-    "min_length": 600,
-    "max_length": 1000,
+    "min_length": 300,
+    "max_length": 800,
     "paragraphs": [
       {
         "order": 1,
-        "type": "hook",
-        "name": "开篇观点",
-        "length": "1-2句",
-        "instruction": "直接给出对该股票的核心判断（看好/看空/中性），开门见山"
+        "type": "body",
+        "name": "本日价格变动",
+        "instruction": "今天涨/跌多少，现价多少。用口语化的方式报数据，不要机械。例：今天这票涨了3个点，现价150块"
       },
       {
         "order": 2,
         "type": "body",
-        "name": "公司概况",
-        "length": "40-60字",
-        "instruction": "公司做什么的，行业地位，主营业务一句话说清楚"
+        "name": "价格变动原因",
+        "instruction": "为什么今天涨/跌。有没有新闻、财报、分析师报告。例：盘前出了财报，营收超预期，市场直接买爆"
       },
       {
         "order": 3,
         "type": "body",
-        "name": "最新财报",
-        "length": "60-100字",
-        "instruction": "最新季度营收、利润、同比增长率，超预期还是不及预期，关键数据摆出来"
+        "name": "公司基本面深度拆解",
+        "instruction": "这公司到底是干什么的，核心业务是什么，钱从哪赚，护城河在哪。用大白话说清楚，不要堆术语"
       },
       {
         "order": 4,
         "type": "body",
-        "name": "核心业务分析",
-        "length": "80-120字",
-        "instruction": "主要收入构成，哪个业务在增长，增长驱动因素是什么，商业模式怎么样"
+        "name": "短线长线是否看好",
+        "instruction": "短线能不能追，现在的位置怎么判断；长线基本面支撑不支撑。给明确判断，不骑墙"
       },
       {
         "order": 5,
         "type": "body",
-        "name": "行业地位与竞争",
-        "length": "60-100字",
-        "instruction": "在行业中的排名，主要竞争对手是谁，护城河是什么，有没有定价权"
+        "name": "重要小道消息",
+        "instruction": "圈内消息、管理层动向、产业链传闻。注明是小道消息，非公开信息"
       },
       {
         "order": 6,
-        "type": "body",
-        "name": "估值分析",
-        "length": "60-100字",
-        "instruction": "当前PE/PB，历史分位，与同行对比，贵还是便宜，安全边际在哪里"
-      },
-      {
-        "order": 7,
-        "type": "body",
-        "name": "风险因素",
-        "length": "40-60字",
-        "instruction": "主要风险点，行业风险、公司风险、估值风险，实事求是"
-      },
-      {
-        "order": 8,
-        "type": "body",
-        "name": "操作建议",
-        "length": "40-60字",
-        "instruction": "买入/持有/卖出建议，目标价位区间，止损位置，给明确判断"
-      },
-      {
-        "order": 9,
-        "type": "cta",
-        "name": "关注引导",
-        "length": "1-2句",
-        "instruction": "深度个股分析，持续分享，每次原创，关注不错过"
-      },
-      {
-        "order": 10,
         "type": "tags",
         "name": "话题标签",
-        "count": "5-8",
-        "instruction": "#股票 #个股分析 #财报 #投资 #价值投资"
+        "instruction": "#股票 #个股分析 #投资"
       }
     ],
     "requires_risk_warning": true,
     "requires_data_timestamp": true,
-    "requires_sources": true
+    "requires_sources": true,
+    "style": "conversational",
+    "no_bullet_points": true,
+    "max_paragraphs": 5
   },
   "title_template": {
     "patterns": [
@@ -145,16 +114,16 @@
       },
       "price": {
         "source": "web_search",
-        "query": "{stock_code} stock price today premarket afterhours",
+        "query": "{stock_code} stock quote current price",
         "default": "---",
-        "description": "The current live stock price of the company in USD (e.g. $150.25). Return EXACTLY the price value only with $ sign."
+        "description": "Find the current stock price. Search for '{stock_code} stock quote' or '{stock_code} stock price'. Return ONLY the price with $ sign like $150.25."
       },
       "change": {
         "source": "web_search",
-        "query": "{stock_code} stock today percent change premarket afterhours",
+        "query": "{stock_code} stock previous close and current price percent change today",
         "default": "0.0%",
         "extract_pattern": "[+-]?\\d+\\.?\\d*%",
-        "description": "Today's stock price percentage change including premarket and afterhours. Format: +1.5% or -2.3%."
+        "description": "Calculate today's percent change: (current price - previous close) / previous close * 100. Return format like +1.5% or -2.3% with sign."
       },
       "trend_arrow": {
         "source": "conditional",
@@ -178,9 +147,9 @@
       },
       "reason": {
         "source": "web_search",
-        "query": "{stock_code} stock news today catalyst",
+        "query": "{stock_code} stock news today catalyst why moving",
         "default": "市场波动",
-        "description": "请用3-8个中文字符简短总结今日该股票涨跌的直接原因"
+        "description": "请用20-30个中文字符或12-18个英文单词详细总结今日该股票涨跌的原因"
       },
       "product_name": {
         "source": "llm_inference",

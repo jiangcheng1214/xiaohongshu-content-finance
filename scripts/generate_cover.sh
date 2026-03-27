@@ -223,8 +223,35 @@ fi
 
 rm -f /tmp/cover_gen_output.txt
 
-# 直接使用背景图作为最终输出（不再添加文字叠加）
-mv "$TEMP_BG" "$OUTPUT"
+# 添加 logo 到左上角
+FINAL_OUTPUT="${OUTPUT}.tmp"
+if [[ -f "$LOGO_PATH" ]]; then
+    # 获取背景图尺寸
+    BG_WIDTH=$(magick identify -format "%w" "$TEMP_BG" 2>/dev/null || echo "800")
+    BG_HEIGHT=$(magick identify -format "%h" "$TEMP_BG" 2>/dev/null || echo "1000")
+
+    # 计算 logo 尺寸（约为背景宽度的 12-15%）
+    LOGO_SIZE=$((BG_WIDTH * 12 / 100))
+
+    # 添加 logo 到左上角，带一些 padding
+    PADDING=$((LOGO_SIZE / 4))
+    magick "$TEMP_BG" \
+        \( "$LOGO_PATH" -resize "${LOGO_SIZE}x${LOGO_SIZE}" \) \
+        -geometry "+${PADDING}+${PADDING}" \
+        -composite "$FINAL_OUTPUT"
+
+    # 如果成功，使用带 logo 的版本；否则使用原始背景
+    if [[ -f "$FINAL_OUTPUT" && -s "$FINAL_OUTPUT" ]]; then
+        mv "$FINAL_OUTPUT" "$OUTPUT"
+        echo "# ✓ Logo 已添加到封面左上角" >&2
+    else
+        mv "$TEMP_BG" "$OUTPUT"
+        echo "# ⚠️ Logo 添加失败，使用原始背景" >&2
+    fi
+else
+    mv "$TEMP_BG" "$OUTPUT"
+    echo "# ⚠️ Logo 文件不存在，使用原始背景" >&2
+fi
 
 # 清理临时文件
 rm -f "$TEMP_PROMPT"
