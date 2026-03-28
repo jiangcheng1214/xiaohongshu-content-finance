@@ -14,6 +14,8 @@ metadata:
       env: [GEMINI_API_KEY]
     emoji: "\U0001F4A1"
     os: [darwin, linux, windows]
+    stateless: true
+    no_context: true
 ---
 
 # 小红书智能内容生成技能
