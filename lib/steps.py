@@ -655,14 +655,8 @@ class Step4PrepareImg(BaseStep):
         description = var_config.get('description', '')
         default = var_config.get('default', '')
 
-        # 特殊处理股票相关变量
+        # 特殊处理股票相关变量 - 总是使用网络搜索获取最新数据
         if var_name == 'price':
-            # 先尝试从 research_data 中提取
-            if research_data:
-                price = self._extract_price_from_research(research_data)
-                if price:
-                    return price
-
             search_prompt = f"""Search for the CURRENT stock price of {context.get('stock_code', query)}.
 Today is {datetime.now().strftime('%Y-%m-%d')}.
 
@@ -674,11 +668,6 @@ Find the most recent trading price. IMPORTANT:
 Return ONLY the price, nothing else."""
 
         elif var_name == 'change':
-            if research_data:
-                change = self._extract_change_from_research(research_data)
-                if change:
-                    return change
-
             search_prompt = f"""Search for the MOST RECENT trading day's percent change for {context.get('stock_code', query)} stock.
 Today is {datetime.now().strftime('%Y-%m-%d')}.
 
@@ -705,43 +694,111 @@ Extract: {description}
 Return ONLY the value, maximum 30 words. No explanation."""
 
         try:
-            result = self.call_llm(search_prompt, expect_json=False, timeout=60)
+            # 增加超时时间到 90 秒
+            result = self.call_llm(search_prompt, expect_json=False, timeout=90)
             if result:
                 return self._clean_variable_result(var_name, result.strip(), default)
         except Exception as e:
             session.log('warn', 'prepare_img', f'Search failed for {var_name}: {str(e)}')
 
+        # 如果搜索失败，对于 price 和 change，尝试从 research_data 中提取
+        if var_name == 'price' and research_data:
+            price = self._extract_price_from_research(research_data)
+            if price:
+                session.log('info', 'prepare_img', f'Extracted price from research: {price}')
+                return price
+
+        if var_name == 'change' and research_data:
+            change = self._extract_change_from_research(research_data)
+            if change:
+                session.log('info', 'prepare_img', f'Extracted change from research: {change}')
+                return change
+
         return default
 
     def _extract_price_from_research(self, research_data: str) -> Optional[str]:
         """从研究数据中提取价格"""
+        # 扩展模式，匹配更多价格格式
         patterns = [
-            r'(?:Current(?:\s*Stock)?(?:\s*Price)?|Price|Last(?:\s*Price)?)\s*[:=]\s*\$?\s*(\d{1,5}\.?\d{0,2})',
+            # 匹配明确标注的当前价格
+            r'(?:Current(?:\s*Stock)?(?:\s*Price)?|Price|Last(?:\s*Price)?|Today(?:.*?price)?)\s*[:=]\s*\$?\s*(\d{1,5}\.?\d{0,2})',
+            # 匹配 $XXX.XX 格式（带2位小数）
             r'\$\s*(\d{1,5}\.\d{2})\s*(?:USD)?\s*(?:per\s*share|/share)?',
+            # 匹配简单的 $XXX 格式
+            r'\$\s*(\d{1,5})\s',
+            # 匹配 "trading at $XXX" 或 "around $XXX"
+            r'(?:trading|at|around|currently)\s*\$?\s*(\d{1,5}\.?\d{0,2})',
+            # 匹配 "is $XXX" 或 "stands at $XXX"
+            r'(?:is|stands?\s*(?:at)?)\s*\$?\s*(\d{1,5}\.?\d{0,2})',
         ]
+
         for pattern in patterns:
             match = re.search(pattern, research_data[:3000], re.IGNORECASE)
             if match:
-                return f'${match.group(1)}'
+                price_num = match.group(1)
+                # 确保格式化为 $XXX.XX
+                if '.' not in price_num:
+                    price_num = f'{price_num}.00'
+                elif len(price_num.split('.')[1]) == 1:
+                    price_num = f'{price_num}0'
+                return f'${price_num}'
+
         return None
 
     def _extract_change_from_research(self, research_data: str) -> Optional[str]:
         """从研究数据中提取涨跌幅"""
+        # 扩展模式，匹配更多涨跌幅格式
         patterns = [
-            r'(?:stock|price|shares?|equity)[\s,]*(?:change|move|gain|loss)[\s:]*([+-]?\d+\.?\d*)%',
-            r'(?:day|daily|today)[\s\']*(?:change|gain|loss)[\s:]*([+-]?\d+\.?\d*)%',
+            # 匹配明确标注的股票价格变化
+            r'(?:stock|price|shares?|equity)[\s,]*(?:change|move|gain|loss|rise|fall|drop|jump)[\s:]*([+-]?\d+\.?\d*)%',
+            # 匹配 "day/daily change X%"
+            r'(?:day|daily|today)[\s\']*(?:change|gain|loss|move)[\s:]*([+-]?\d+\.?\d*)%',
+            # 匹配 "up/down X%" 或 "rose/fell X%"
+            r'(?:up|down|rose|fell|gained|lost|increased|decreased)[\s]+by\s+([+-]?\d+\.?\d*)%',
+            # 匹配 "X% higher/lower"
+            r'([+-]?\d+\.?\d*)%\s+(?:higher|lower)',
+            # 匹配简单的百分比（需要上下文判断正负）
+            r'(?:traded|moved|changed)[\s]+([+-]?\d+\.?\d*)%',
         ]
+
         for pattern in patterns:
             matches = re.findall(pattern, research_data[:3000], re.IGNORECASE)
             if matches:
                 change = matches[0]
                 if not change.startswith(('+', '-')):
-                    # 简单判断正负
-                    if 'down' in research_data[:500].lower() or 'declin' in research_data[:500].lower():
+                    # 根据上下文判断正负
+                    snippet_lower = research_data[:500].lower()
+                    # 检查负面关键词
+                    if any(w in snippet_lower for w in ['down', 'declin', 'drop', 'fall', 'fell', 'loss', 'lower', 'decreas', '跌', '跌了']):
                         change = '-' + change
                     else:
                         change = '+' + change
                 return f'{change}%'
+
+        # 如果上面的模式都没匹配到，尝试通用的百分比提取
+        all_percentages = re.findall(r'([+-]?\d+\.?\d*)%', research_data[:2000])
+        if all_percentages:
+            # 过滤掉明显的增长率指标
+            filtered = []
+            for pct in all_percentages:
+                idx = research_data[:2000].find(f'{pct}%')
+                if idx > 0:
+                    context = research_data[max(0, idx-100):idx+50].lower()
+                    # 排除收入/利润/增长相关的百分比
+                    if any(w in context for w in ['revenue', 'earnings', 'growth', 'income', 'sales', 'yoy', 'year-over-year', '同比', '环比', '增长', '营收', '利润']):
+                        continue
+                filtered.append(pct)
+
+            if filtered:
+                change = filtered[0]
+                if not change.startswith(('+', '-')):
+                    snippet_lower = research_data[:500].lower()
+                    if any(w in snippet_lower for w in ['down', 'declin', 'drop', 'fall', 'loss', 'lower', 'decreas', '跌']):
+                        change = '-' + change
+                    else:
+                        change = '+' + change
+                return f'{change}%'
+
         return None
 
     def _clean_variable_result(self, var_name: str, raw: str, default: str) -> str:
@@ -924,11 +981,11 @@ class Step6Overlay(BaseStep):
                 session.log('info', 'overlay', 'No logo found, using original background')
                 return True
 
-            # 使用 ImageMagick 添加 logo
+            # 使用 ImageMagick 添加 logo (尺寸和边距都是原来的2倍)
             result = subprocess.run([
                 'magick', str(input_file),
-                '(', str(logo_path), '-resize', '12%', ')',
-                '-geometry', '+10+10',
+                '(', str(logo_path), '-resize', '24%', ')',
+                '-geometry', '+20+20',
                 '-composite', str(output_file)
             ], capture_output=True, text=True)
 
