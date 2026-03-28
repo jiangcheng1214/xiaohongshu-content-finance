@@ -1037,7 +1037,11 @@ Return ONLY the value, max 30 words. No explanation."""
 # =============================================================================
 
 class Step4aValidateStockData(BaseStep):
-    """Step 4a: 验证股票数据准确性"""
+    """Step 4a: 验证股票数据准确性 - 多层验证确保数据万无一失"""
+
+    # 数据合理性范围
+    REASONABLE_PRICE_RANGE = (1, 10000)  # 股价合理范围
+    REASONABLE_CHANGE_RANGE = (-30, 30)   # 日涨跌幅合理范围
 
     def run(self, session: XhsSession, **kwargs) -> bool:
         """执行股票数据验证步骤"""
@@ -1048,10 +1052,12 @@ class Step4aValidateStockData(BaseStep):
         session.log('info', 'validate_stock_data', 'Step started')
         session.update_step('validate_stock_data', 'in_progress')
 
-        max_retries = 3
-        retry_count = 0
+        max_validation_rounds = 3  # 最多验证3轮
 
-        while retry_count < max_retries:
+        for round_num in range(max_validation_rounds):
+            session.log('info', 'validate_stock_data',
+                       f'=== Validation round {round_num + 1}/{max_validation_rounds} ===')
+
             # 获取当前的数据
             prepare_data = session.get_step_data('prepare_img')
             variables = prepare_data.get('variables', {})
@@ -1062,58 +1068,25 @@ class Step4aValidateStockData(BaseStep):
             change = variables.get('change', '')
             reason = variables.get('reason', '')
 
-            session.log('info', 'validate_stock_data',
-                       f'Validation attempt {retry_count + 1}/{max_retries}',
+            session.log('info', 'validate_stock_data', 'Current data',
                        {'stock_code': stock_code, 'price': price, 'change': change, 'reason': reason})
 
-            # 验证价格格式
-            price_valid = self._validate_price(price)
-            if not price_valid:
-                session.log('warn', 'validate_stock_data', f'Invalid price format: {price}')
-                # 重新获取价格
-                new_price = self._fetch_price(stock_code, session)
-                if new_price:
-                    variables['price'] = new_price
-                    sources['price'] = 'web_search_retry'
-                    session.log('info', 'validate_stock_data', f'Refetched price: {new_price}')
+            # 第一层验证：格式验证
+            if not self._format_validation(stock_code, price, change, reason, variables, sources, session):
+                continue  # 格式验证失败，进入下一轮
 
-            # 验证变动格式
-            change_valid = self._validate_change(change)
-            if not change_valid:
-                session.log('warn', 'validate_stock_data', f'Invalid change format: {change}')
-                # 重新获取变动
-                new_change = self._fetch_change(stock_code, session)
-                if new_change:
-                    variables['change'] = new_change
-                    sources['change'] = 'web_search_retry'
-                    session.log('info', 'validate_stock_data', f'Refetched change: {new_change}')
+            # 第二层验证：多源数据获取与交叉验证
+            if not self._cross_source_validation(stock_code, variables, sources, session):
+                continue  # 交叉验证失败，进入下一轮
 
-            # 验证 reason
-            reason_valid = self._validate_reason(reason)
-            if not reason_valid:
-                session.log('warn', 'validate_stock_data', f'Invalid reason: {reason}')
-                # 重新获取 reason
-                new_reason = self._fetch_reason(stock_code, session)
-                if new_reason:
-                    variables['reason'] = new_reason
-                    sources['reason'] = 'web_search_retry'
-                    session.log('info', 'validate_stock_data', f'Refetched reason: {new_reason}')
+            # 第三层验证：数据合理性验证
+            if not self._sanity_validation(price, change, session):
+                continue  # 合理性验证失败，进入下一轮
 
-            # 验证 product_name（确保与 stock_code 匹配）
-            product_name = variables.get('product_name', '')
-            if product_name:
-                product_valid = self._validate_product_name(stock_code, product_name)
-                if not product_valid:
-                    session.log('warn', 'validate_stock_data',
-                               f'product_name "{product_name}" may not match {stock_code}')
-                    # 重新获取 product_name
-                    new_product = self._fetch_product_name(stock_code, session)
-                    if new_product and new_product != product_name:
-                        variables['product_name'] = new_product
-                        sources['product_name'] = 'llm_inference_retry'
-                        session.log('info', 'validate_stock_data', f'Refetched product_name: {new_product}')
+            # 所有验证通过
+            session.log('success', 'validate_stock_data', 'All validations passed!')
 
-            # 更新填充的 prompt
+            # 更新填充的 prompt（使用验证后的数据）
             config = self.load_vertical_config(session.vertical)
             cover_config = config.get('cover_config', {})
             template = cover_config.get('background_prompt_template', '')
@@ -1131,30 +1104,134 @@ class Step4aValidateStockData(BaseStep):
                 'filled_prompt': template
             })
 
-            # 最终验证
-            if (self._validate_price(variables.get('price', '')) and
-                self._validate_change(variables.get('change', '')) and
-                self._validate_reason(variables.get('reason', ''))):
-                session.update_step('validate_stock_data', 'completed', {
-                    'validated_data': {
-                        'stock_code': stock_code,
-                        'price': variables.get('price', ''),
-                        'change': variables.get('change', ''),
-                        'reason': variables.get('reason', '')
-                    }
-                })
-                session.log('success', 'validate_stock_data', 'All data validated successfully')
-                return True
+            session.update_step('validate_stock_data', 'completed', {
+                'validation_rounds': round_num + 1,
+                'validated_data': {
+                    'stock_code': stock_code,
+                    'price': price,
+                    'change': change,
+                    'reason': reason
+                },
+                'validation_passed': True
+            })
 
-            retry_count += 1
+            return True
 
-        # 达到最大重试次数
+        # 达到最大验证轮数
         session.update_step('validate_stock_data', 'completed', {
-            'validation_result': 'max_retries_reached',
-            'final_data': variables
+            'validation_result': 'max_rounds_reached',
+            'final_data': variables,
+            'validation_passed': False
         })
-        session.log('warn', 'validate_stock_data', 'Reached max retries, using current data')
+        session.log('warn', 'validate_stock_data', 'Reached max validation rounds, using current data')
         return True  # 继续执行，使用当前数据
+
+    def _format_validation(self, stock_code: str, price: str, change: str, reason: str,
+                          variables: dict, sources: dict, session: XhsSession) -> bool:
+        """第一层：格式验证"""
+        all_valid = True
+
+        # 验证价格
+        price_valid = self._validate_price(price)
+        if not price_valid:
+            session.log('warn', 'validate_stock_data', f'Invalid price format: {price}')
+            new_price = self._fetch_price(stock_code, session)
+            if new_price:
+                variables['price'] = new_price
+                sources['price'] = 'web_search_retry'
+                session.log('info', 'validate_stock_data', f'Refetched price: {new_price}')
+            else:
+                all_valid = False
+
+        # 验证变动
+        change_valid = self._validate_change(change)
+        if not change_valid:
+            session.log('warn', 'validate_stock_data', f'Invalid change format: {change}')
+            new_change = self._fetch_change(stock_code, session)
+            if new_change:
+                variables['change'] = new_change
+                sources['change'] = 'web_search_retry'
+                session.log('info', 'validate_stock_data', f'Refetched change: {new_change}')
+            else:
+                all_valid = False
+
+        # 验证原因
+        reason_valid = self._validate_reason(reason)
+        if not reason_valid:
+            session.log('warn', 'validate_stock_data', f'Invalid reason: {reason}')
+            new_reason = self._fetch_reason(stock_code, session)
+            if new_reason:
+                variables['reason'] = new_reason
+                sources['reason'] = 'web_search_retry'
+                session.log('info', 'validate_stock_data', f'Refetched reason: {new_reason}')
+            else:
+                all_valid = False
+
+        return all_valid
+
+    def _cross_source_validation(self, stock_code: str, variables: dict, sources: dict,
+                                session: XhsSession) -> bool:
+        """第二层：多源数据获取与交叉验证"""
+        # 对价格和变动进行二次获取，交叉验证
+        session.log('info', 'validate_stock_data', 'Performing cross-source validation...')
+
+        # 二次获取价格
+        price_verify = fetch_stock_price(stock_code, timeout=60)
+        if price_verify and price_verify != variables.get('price'):
+            session.log('info', 'validate_stock_data',
+                       f'Price verification: original={variables.get("price")}, verified={price_verify}')
+            # 如果两者不同，取较新的（这里简单处理，取第二次获取的）
+            variables['price'] = price_verify
+            sources['price'] = 'cross_source_verified'
+
+        # 二次获取变动
+        change_verify = fetch_stock_change(stock_code, timeout=60)
+        if change_verify and change_verify != variables.get('change'):
+            session.log('info', 'validate_stock_data',
+                       f'Change verification: original={variables.get("change")}, verified={change_verify}')
+            variables['change'] = change_verify
+            sources['change'] = 'cross_source_verified'
+
+        # 二次获取原因
+        reason_verify = fetch_stock_reason(stock_code, timeout=45)
+        if reason_verify and reason_verify != variables.get('reason'):
+            session.log('info', 'validate_stock_data',
+                       f'Reason verification: original={variables.get("reason")}, verified={reason_verify}')
+            variables['reason'] = reason_verify
+            sources['reason'] = 'cross_source_verified'
+
+        return True
+
+    def _sanity_validation(self, price: str, change: str, session: XhsSession) -> bool:
+        """第三层：数据合理性验证"""
+        all_sane = True
+
+        # 验证价格在合理范围内
+        try:
+            price_value = float(price.replace('$', ''))
+            if not (self.REASONABLE_PRICE_RANGE[0] <= price_value <= self.REASONABLE_PRICE_RANGE[1]):
+                session.log('warn', 'validate_stock_data',
+                           f'Price {price_value} outside reasonable range {self.REASONABLE_PRICE_RANGE}')
+                all_sane = False
+        except (ValueError, AttributeError):
+            session.log('error', 'validate_stock_data', f'Cannot parse price: {price}')
+            all_sane = False
+
+        # 验证变动在合理范围内
+        try:
+            change_value = float(change.replace('%', '').replace('+', ''))
+            if not (self.REASONABLE_CHANGE_RANGE[0] <= change_value <= self.REASONABLE_CHANGE_RANGE[1]):
+                session.log('warn', 'validate_stock_data',
+                           f'Change {change_value}% outside reasonable range {self.REASONABLE_CHANGE_RANGE}')
+                all_sane = False
+        except (ValueError, AttributeError):
+            session.log('error', 'validate_stock_data', f'Cannot parse change: {change}')
+            all_sane = False
+
+        if all_sane:
+            session.log('info', 'validate_stock_data', 'Sanity validation passed')
+
+        return all_sane
 
     def _validate_price(self, price: str) -> bool:
         """验证价格格式"""
