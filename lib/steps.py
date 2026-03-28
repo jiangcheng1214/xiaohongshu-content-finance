@@ -8,6 +8,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import time
 from abc import ABC, abstractmethod
@@ -18,6 +19,133 @@ from typing import Any, Dict, Optional, Tuple
 from session import XhsSession
 from validate import validate_content
 from image_gen import generate_image, get_api_key
+
+
+# =============================================================================
+# 股票数据获取辅助函数（供 Step4 和 Step4a 共用）
+# =============================================================================
+
+def fetch_stock_price(stock_code: str, timeout: int = 90) -> Optional[str]:
+    """获取股票最新价格"""
+    prompt = f"""What is the CURRENT stock price of {stock_code}?
+Today is {datetime.now().strftime('%Y-%m-%d')}.
+
+Return ONLY the price in format $XXX.XX (with dollar sign).
+Example: $150.25
+
+Return ONLY the price, nothing else."""
+    try:
+        result = subprocess.run(
+            ['claude', '--dangerously-skip-permissions', '-p', prompt],
+            capture_output=True, text=True, timeout=timeout
+        )
+        if result.returncode == 0 and result.stdout:
+            match = re.search(r'\$\d{1,5}\.\d{2}', result.stdout)
+            if match:
+                return match.group(0)
+    except (subprocess.TimeoutExpired, Exception):
+        pass
+    return None
+
+
+def fetch_stock_change(stock_code: str, timeout: int = 90) -> Optional[str]:
+    """获取股票最新变动百分比"""
+    prompt = f"""What is the MOST RECENT daily percent change for {stock_code} stock?
+Today is {datetime.now().strftime('%Y-%m-%d')}.
+
+Return ONLY the percentage with sign and percent sign.
+Format: +X.XX% or -X.XX%
+Example: +1.5% or -2.3%
+
+Return ONLY the percentage, nothing else."""
+    try:
+        result = subprocess.run(
+            ['claude', '--dangerously-skip-permissions', '-p', prompt],
+            capture_output=True, text=True, timeout=timeout
+        )
+        if result.returncode == 0 and result.stdout:
+            match = re.search(r'[+-]?\d+\.?\d*%', result.stdout)
+            if match:
+                pct = match.group(1)
+                if not pct.startswith(('+', '-')):
+                    context = result.stdout.lower()[:100]
+                    if any(w in context for w in ['down', 'declin', 'fall']):
+                        pct = '-' + pct
+                    else:
+                        pct = '+' + pct
+                return f'{pct}%'
+    except (subprocess.TimeoutExpired, Exception):
+        pass
+    return None
+
+
+def fetch_stock_reason(stock_code: str, timeout: int = 60) -> Optional[str]:
+    """获取股票变动原因"""
+    prompt = f"""What is the main reason why {stock_code} stock is moving today?
+Today is {datetime.now().strftime('%Y-%m-%d')}.
+
+Return ONLY a brief English explanation, maximum 5 words.
+Examples: 'AI demand surge', 'earnings beat expectations', 'regulatory concerns', 'market sell-off'
+
+Return ONLY the brief reason, no explanation."""
+    try:
+        result = subprocess.run(
+            ['claude', '--dangerously-skip-permissions', '-p', prompt],
+            capture_output=True, text=True, timeout=timeout
+        )
+        if result.returncode == 0 and result.stdout:
+            cleaned = result.stdout.strip().split('\n')[0]
+            cleaned = re.sub(r'^["\']|["\']$', '', cleaned)
+            words = cleaned.split()[:5]
+            cleaned = ' '.join(words)
+            cleaned = re.sub(r'[.!?;,]+$', '', cleaned)
+            if len(cleaned) >= 3:
+                return cleaned.lower()
+    except (subprocess.TimeoutExpired, Exception):
+        pass
+    return None
+
+
+def extract_price_from_research(research_data: str) -> Optional[str]:
+    """从研究数据中提取价格（简化版）"""
+    patterns = [
+        r'(?:Current(?:\s*Stock)?(?:\s*Price)?|Price|Last(?:\s*Price)?)\s*[:=]\s*\$?\s*(\d{1,5}\.?\d{0,2})',
+        r'\$\s*(\d{1,5}\.\d{2})\s*(?:USD)?\s*(?:per\s*share|/share)?',
+        r'\$\s*(\d{1,5})\s',
+        r'(?:trading|at|around|currently)\s*\$?\s*(\d{1,5}\.?\d{0,2})',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, research_data[:3000], re.IGNORECASE)
+        if match:
+            price_num = match.group(1)
+            if '.' not in price_num:
+                price_num = f'{price_num}.00'
+            elif len(price_num.split('.')[1]) == 1:
+                price_num = f'{price_num}0'
+            return f'${price_num}'
+    return None
+
+
+def extract_change_from_research(research_data: str) -> Optional[str]:
+    """从研究数据中提取涨跌幅（简化版）"""
+    patterns = [
+        r'(?:stock|price|shares?)[\s,]*(?:change|move|gain|loss|rise|fall|drop)[\s:]*([+-]?\d+\.?\d*)%',
+        r'(?:day|daily|today)[\s\']*(?:change|gain|loss|move)[\s:]*([+-]?\d+\.?\d*)%',
+        r'(?:up|down|rose|fell|gained|lost)[\s]+by\s+([+-]?\d+\.?\d*)%',
+        r'([+-]?\d+\.?\d*)%\s+(?:higher|lower)',
+    ]
+    for pattern in patterns:
+        matches = re.findall(pattern, research_data[:3000], re.IGNORECASE)
+        if matches:
+            change = matches[0]
+            if not change.startswith(('+', '-')):
+                snippet_lower = research_data[:500].lower()
+                if any(w in snippet_lower for w in ['down', 'declin', 'drop', 'fall', 'loss', 'lower']):
+                    change = '-' + change
+                else:
+                    change = '+' + change
+            return f'{change}%'
+    return None
 
 
 # =============================================================================
@@ -649,157 +777,58 @@ class Step4PrepareImg(BaseStep):
                         context: Dict, session: XhsSession,
                         research_data: str) -> str:
         """通过搜索获取变量"""
-
-        query_template = var_config.get('query', '')
-        query = query_template.format(**context)
-        description = var_config.get('description', '')
         default = var_config.get('default', '')
+        stock_code = context.get('stock_code', '')
 
-        # 特殊处理股票相关变量 - 总是使用网络搜索获取最新数据
-        if var_name == 'price':
-            search_prompt = f"""Search for the CURRENT stock price of {context.get('stock_code', query)}.
-Today is {datetime.now().strftime('%Y-%m-%d')}.
+        # 特殊处理股票相关变量 - 使用共享的辅助函数
+        if var_name == 'price' and stock_code:
+            result = fetch_stock_price(stock_code, timeout=90)
+            if result:
+                return result
+            # 回退到从 research_data 提取
+            if research_data:
+                price = extract_price_from_research(research_data)
+                if price:
+                    session.log('info', 'prepare_img', f'Extracted price from research: {price}')
+                    return price
+            return default
 
-Find the most recent trading price. IMPORTANT:
-- Return the latest/current price, NOT the previous close
-- Format: $XXX.XX (with dollar sign)
-- Example: $150.25
+        if var_name == 'change' and stock_code:
+            result = fetch_stock_change(stock_code, timeout=90)
+            if result:
+                return result
+            # 回退到从 research_data 提取
+            if research_data:
+                change = extract_change_from_research(research_data)
+                if change:
+                    session.log('info', 'prepare_img', f'Extracted change from research: {change}')
+                    return change
+            return default
 
-Return ONLY the price, nothing else."""
+        if var_name == 'reason' and stock_code:
+            result = fetch_stock_reason(stock_code, timeout=60)
+            if result:
+                return result
+            return default
 
-        elif var_name == 'change':
-            search_prompt = f"""Search for the MOST RECENT trading day's percent change for {context.get('stock_code', query)} stock.
-Today is {datetime.now().strftime('%Y-%m-%d')}.
+        # 其他变量使用通用搜索
+        query = var_config.get('query', '').format(**context)
+        description = var_config.get('description', '')
 
-Find the latest daily gain/loss percentage.
-Format: +X.XX% or -X.XX% (with sign and percent sign)
-Example: +1.5% or -2.3%
-
-Return ONLY the percentage with sign, nothing else."""
-
-        elif var_name == 'reason':
-            search_prompt = f"""Search for the main reason why {context.get('stock_code', query)} stock is moving today.
-Today is {datetime.now().strftime('%Y-%m-%d')}.
-
-Find the primary catalyst for today's price movement.
-Return ONLY a brief English explanation, maximum 5 words.
-Examples: 'AI demand surge', 'earnings beat expectations', 'regulatory concerns'
-
-Return ONLY the brief reason, no explanation."""
-        else:
-            search_prompt = f"""Search for: "{query}"
+        search_prompt = f"""Search for: "{query}"
 Today: {datetime.now().strftime('%Y-%m-%d')}
 Extract: {description}
 
 Return ONLY the value, maximum 30 words. No explanation."""
 
         try:
-            # 增加超时时间到 90 秒
             result = self.call_llm(search_prompt, expect_json=False, timeout=90)
             if result:
                 return self._clean_variable_result(var_name, result.strip(), default)
         except Exception as e:
             session.log('warn', 'prepare_img', f'Search failed for {var_name}: {str(e)}')
 
-        # 如果搜索失败，对于 price 和 change，尝试从 research_data 中提取
-        if var_name == 'price' and research_data:
-            price = self._extract_price_from_research(research_data)
-            if price:
-                session.log('info', 'prepare_img', f'Extracted price from research: {price}')
-                return price
-
-        if var_name == 'change' and research_data:
-            change = self._extract_change_from_research(research_data)
-            if change:
-                session.log('info', 'prepare_img', f'Extracted change from research: {change}')
-                return change
-
         return default
-
-    def _extract_price_from_research(self, research_data: str) -> Optional[str]:
-        """从研究数据中提取价格"""
-        # 扩展模式，匹配更多价格格式
-        patterns = [
-            # 匹配明确标注的当前价格
-            r'(?:Current(?:\s*Stock)?(?:\s*Price)?|Price|Last(?:\s*Price)?|Today(?:.*?price)?)\s*[:=]\s*\$?\s*(\d{1,5}\.?\d{0,2})',
-            # 匹配 $XXX.XX 格式（带2位小数）
-            r'\$\s*(\d{1,5}\.\d{2})\s*(?:USD)?\s*(?:per\s*share|/share)?',
-            # 匹配简单的 $XXX 格式
-            r'\$\s*(\d{1,5})\s',
-            # 匹配 "trading at $XXX" 或 "around $XXX"
-            r'(?:trading|at|around|currently)\s*\$?\s*(\d{1,5}\.?\d{0,2})',
-            # 匹配 "is $XXX" 或 "stands at $XXX"
-            r'(?:is|stands?\s*(?:at)?)\s*\$?\s*(\d{1,5}\.?\d{0,2})',
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, research_data[:3000], re.IGNORECASE)
-            if match:
-                price_num = match.group(1)
-                # 确保格式化为 $XXX.XX
-                if '.' not in price_num:
-                    price_num = f'{price_num}.00'
-                elif len(price_num.split('.')[1]) == 1:
-                    price_num = f'{price_num}0'
-                return f'${price_num}'
-
-        return None
-
-    def _extract_change_from_research(self, research_data: str) -> Optional[str]:
-        """从研究数据中提取涨跌幅"""
-        # 扩展模式，匹配更多涨跌幅格式
-        patterns = [
-            # 匹配明确标注的股票价格变化
-            r'(?:stock|price|shares?|equity)[\s,]*(?:change|move|gain|loss|rise|fall|drop|jump)[\s:]*([+-]?\d+\.?\d*)%',
-            # 匹配 "day/daily change X%"
-            r'(?:day|daily|today)[\s\']*(?:change|gain|loss|move)[\s:]*([+-]?\d+\.?\d*)%',
-            # 匹配 "up/down X%" 或 "rose/fell X%"
-            r'(?:up|down|rose|fell|gained|lost|increased|decreased)[\s]+by\s+([+-]?\d+\.?\d*)%',
-            # 匹配 "X% higher/lower"
-            r'([+-]?\d+\.?\d*)%\s+(?:higher|lower)',
-            # 匹配简单的百分比（需要上下文判断正负）
-            r'(?:traded|moved|changed)[\s]+([+-]?\d+\.?\d*)%',
-        ]
-
-        for pattern in patterns:
-            matches = re.findall(pattern, research_data[:3000], re.IGNORECASE)
-            if matches:
-                change = matches[0]
-                if not change.startswith(('+', '-')):
-                    # 根据上下文判断正负
-                    snippet_lower = research_data[:500].lower()
-                    # 检查负面关键词
-                    if any(w in snippet_lower for w in ['down', 'declin', 'drop', 'fall', 'fell', 'loss', 'lower', 'decreas', '跌', '跌了']):
-                        change = '-' + change
-                    else:
-                        change = '+' + change
-                return f'{change}%'
-
-        # 如果上面的模式都没匹配到，尝试通用的百分比提取
-        all_percentages = re.findall(r'([+-]?\d+\.?\d*)%', research_data[:2000])
-        if all_percentages:
-            # 过滤掉明显的增长率指标
-            filtered = []
-            for pct in all_percentages:
-                idx = research_data[:2000].find(f'{pct}%')
-                if idx > 0:
-                    context = research_data[max(0, idx-100):idx+50].lower()
-                    # 排除收入/利润/增长相关的百分比
-                    if any(w in context for w in ['revenue', 'earnings', 'growth', 'income', 'sales', 'yoy', 'year-over-year', '同比', '环比', '增长', '营收', '利润']):
-                        continue
-                filtered.append(pct)
-
-            if filtered:
-                change = filtered[0]
-                if not change.startswith(('+', '-')):
-                    snippet_lower = research_data[:500].lower()
-                    if any(w in snippet_lower for w in ['down', 'declin', 'drop', 'fall', 'loss', 'lower', 'decreas', '跌']):
-                        change = '-' + change
-                    else:
-                        change = '+' + change
-                return f'{change}%'
-
-        return None
 
     def _clean_variable_result(self, var_name: str, raw: str, default: str) -> str:
         """清理变量结果"""
@@ -1055,75 +1084,26 @@ class Step4aValidateStockData(BaseStep):
 
     def _fetch_price(self, stock_code: str, session: XhsSession) -> Optional[str]:
         """重新获取价格"""
-        prompt = f"""What is the CURRENT stock price of {stock_code}?
-Today is {datetime.now().strftime('%Y-%m-%d')}.
-
-Return ONLY the price in format $XXX.XX (with dollar sign).
-Example: $150.25
-
-Return ONLY the price, nothing else."""
-        try:
-            result = self.call_llm(prompt, expect_json=False, timeout=90)
-            if result:
-                match = re.search(r'\$\d{1,5}\.\d{2}', result)
-                if match:
-                    return match.group(0)
-        except Exception as e:
-            session.log('warn', 'validate_stock_data', f'Failed to fetch price: {str(e)}')
+        result = fetch_stock_price(stock_code, timeout=90)
+        if result:
+            return result
+        session.log('warn', 'validate_stock_data', 'Failed to fetch price')
         return None
 
     def _fetch_change(self, stock_code: str, session: XhsSession) -> Optional[str]:
         """重新获取变动"""
-        prompt = f"""What is the MOST RECENT daily percent change for {stock_code} stock?
-Today is {datetime.now().strftime('%Y-%m-%d')}.
-
-Return ONLY the percentage with sign and percent sign.
-Format: +X.XX% or -X.XX%
-Example: +1.5% or -2.3%
-
-Return ONLY the percentage, nothing else."""
-        try:
-            result = self.call_llm(prompt, expect_json=False, timeout=90)
-            if result:
-                match = re.search(r'[+-]?\d+\.?\d*%', result)
-                if match:
-                    pct = match.group(1)
-                    if not pct.startswith(('+', '-')):
-                        # 尝试从结果中判断正负
-                        if 'down' in result.lower()[:100] or 'declin' in result.lower()[:100] or 'fall' in result.lower()[:100]:
-                            pct = '-' + pct
-                        else:
-                            pct = '+' + pct
-                    return f'{pct}%'
-        except Exception as e:
-            session.log('warn', 'validate_stock_data', f'Failed to fetch change: {str(e)}')
+        result = fetch_stock_change(stock_code, timeout=90)
+        if result:
+            return result
+        session.log('warn', 'validate_stock_data', 'Failed to fetch change')
         return None
 
     def _fetch_reason(self, stock_code: str, session: XhsSession) -> Optional[str]:
         """重新获取 reason"""
-        prompt = f"""What is the main reason why {stock_code} stock is moving today?
-Today is {datetime.now().strftime('%Y-%m-%d')}.
-
-Return ONLY a brief English explanation, maximum 5 words.
-Examples: 'AI demand surge', 'earnings beat expectations', 'regulatory concerns', 'market sell-off'
-
-Return ONLY the brief reason, no explanation."""
-        try:
-            result = self.call_llm(prompt, expect_json=False, timeout=60)
-            if result:
-                # 清理结果
-                cleaned = result.strip().split('\n')[0]
-                # 移除引号
-                cleaned = re.sub(r'^["\']|["\']$', '', cleaned)
-                # 只保留前5个单词
-                words = cleaned.split()[:5]
-                cleaned = ' '.join(words)
-                # 移除结尾标点
-                cleaned = re.sub(r'[.!?;,]+$', '', cleaned)
-                if len(cleaned) >= 3:
-                    return cleaned.lower()
-        except Exception as e:
-            session.log('warn', 'validate_stock_data', f'Failed to fetch reason: {str(e)}')
+        result = fetch_stock_reason(stock_code, timeout=60)
+        if result:
+            return result
+        session.log('warn', 'validate_stock_data', 'Failed to fetch reason')
         return None
 
 
@@ -1210,7 +1190,6 @@ class Step6Overlay(BaseStep):
 
             if not logo_path or not logo_path.exists():
                 # 没有 logo，直接复制
-                import shutil
                 shutil.copy2(input_file, output_file)
                 file_size = output_file.stat().st_size
 
@@ -1232,7 +1211,6 @@ class Step6Overlay(BaseStep):
 
             if result.returncode != 0:
                 # 失败，使用原始背景
-                import shutil
                 shutil.copy2(input_file, output_file)
                 file_size = output_file.stat().st_size
 
@@ -1310,7 +1288,6 @@ class Step7Deliver(BaseStep):
 
             cover_src = session.get_file_path('cover.png')
             if cover_src.exists():
-                import shutil
                 shutil.copy2(cover_src, export_dir / 'cover.png')
 
             session.log('info', 'deliver', f'Files archived to: {export_dir}')
