@@ -175,10 +175,11 @@
         "description": "根据涨跌设置文本颜色指令"
       },
       "reason": {
-        "source": "web_search",
-        "query": "{stock_code} stock news today catalyst why moving",
+        "source": "llm_inference",
+        "inference_prompt": "What is the main reason why {stock_code} stock is moving today? Return ONLY a brief English explanation, maximum 5 words. Examples: 'AI demand surge', 'earnings beat expectations', 'regulatory concerns', 'market sell-off'. Do NOT include phrases like 'According to' or 'based on'.",
+        "depends_on": ["stock_code"],
         "default": "market volatility",
-        "description": "Brief explanation of today's price change. English only, maximum 5 words. Examples: 'AI demand surge', 'earnings beat expectations', 'regulatory concerns', 'market sell-off'."
+        "description": "股票变动原因"
       },
       "product_name": {
         "source": "llm_inference",

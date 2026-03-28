@@ -64,16 +64,18 @@ Return ONLY the percentage, nothing else."""
             capture_output=True, text=True, timeout=timeout
         )
         if result.returncode == 0 and result.stdout:
+            # 修复: 使用 group(0) 而不是 group(1)
             match = re.search(r'[+-]?\d+\.?\d*%', result.stdout)
             if match:
-                pct = match.group(1)
+                pct = match.group(0)  # 修复: group(0) 是整个匹配
+                # 确保有符号
                 if not pct.startswith(('+', '-')):
                     context = result.stdout.lower()[:100]
-                    if any(w in context for w in ['down', 'declin', 'fall']):
+                    if any(w in context for w in ['down', 'declin', 'fall', 'drop', 'loss']):
                         pct = '-' + pct
                     else:
                         pct = '+' + pct
-                return f'{pct}%'
+                return pct
     except (subprocess.TimeoutExpired, Exception):
         pass
     return None
@@ -1149,15 +1151,33 @@ class Step4aValidateStockData(BaseStep):
 
     def _validate_change(self, change: str) -> bool:
         """验证变动格式"""
-        if not change or change == '0.0%':
+        if not change:
+            return False
+        # 拒绝无效值
+        if change in ['0.0%', '+0.0%', '-0.0%', '0%', '+0%', '-0%', '---']:
             return False
         # 格式: +X.XX% 或 -X.XX%
-        return bool(re.match(r'^[+-]\d+\.?\d*%$', change))
+        if not re.match(r'^[+-]\d+\.?\d*%$', change):
+            return False
+        # 拒绝接近 0 的值（可能是数据获取失败）
+        numeric_part = change.strip('%').strip('+').strip('-')
+        try:
+            if float(numeric_part) < 0.01:
+                return False
+        except ValueError:
+            return False
+        return True
 
     def _validate_reason(self, reason: str) -> bool:
         """验证 reason 格式"""
-        if not reason or reason == 'market volatility':
+        if not reason:
             return False
+
+        # 检查默认值
+        if reason == 'market volatility':
+            return False
+
+        reason_lower = reason.lower()
 
         # 检查是否包含无效的关键词或模式（部分匹配）
         invalid_patterns = [
@@ -1170,9 +1190,11 @@ class Step4aValidateStockData(BaseStep):
             'unable to',
             'not available',
             'no information',
-            'as of my'
+            'as of my',
+            'the article',
+            'based on the',
+            'according to the',
         ]
-        reason_lower = reason.lower()
         for pattern in invalid_patterns:
             if pattern in reason_lower:
                 return False
@@ -1187,7 +1209,7 @@ class Step4aValidateStockData(BaseStep):
             return False
 
         # 检查是否以冠词或代词开头（通常表示解析失败）
-        invalid_starts = ['the ', 'a ', 'an ', 'i ', 'it ', 'this ']
+        invalid_starts = ['the ', 'a ', 'an ', 'i ', 'it ', 'this ', 'based on', 'according to']
         if any(reason_lower.startswith(s) for s in invalid_starts):
             return False
 
