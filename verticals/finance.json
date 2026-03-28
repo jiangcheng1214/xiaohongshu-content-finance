@@ -134,6 +134,28 @@
   },
   "cover_config": {
     "logo_file": "finance.png",
-    "background_prompt_template": "Professional modern color gradient background in elegant design, subtle floating  geometric shapes, flat style, 3:4 portrait, no text, no words, no letters, minimal tech aesthetic."
+    "aspect_ratio": "1:1",
+    "background_prompt_template": "A cute, refined Isometric Diorama 3D miniature illustration, pure soft solid color background, claymorphism and smooth 3D render style.\n\n1. Visual Anchor:\nThe centerpiece is a 3D miniature {theme_element} - a recognizable finance-themed object or sculpture. Place it prominently on a circular base. The base is surrounded by small decorative elements like tiny miniature gold coins, currency symbols ($), and abstract geometric data blocks.\n\n2. Core Information Component (The Calendar):\nIn the front corner of the diorama base, there's a realistic but cute 3D Calendar Block in Navy Blue. The date '{date}' is perfectly and clearly engraved on the calendar block.\n\n3. Environmental Atmosphere:\nProfessional financial district aesthetic with Warm Golden Lighting. Deep blue and gold color palette symbolizing trust and prosperity. Soft studio shadows, harmonious composition.\n\n4. Floating Information Layer (UI Overlay):\nAbove and around the model, synthesize AR-style minimalist frosted glassmorphism UI labels (white glass bubbles with clean dark text).\n- Top Main label: '{title}'\n- Secondary wide label underneath: '{subtitle}'\n\n1:1 square ratio, 8k resolution, C4D, Octane Render, extremely high quality adorable 3D UI design, STRICTLY follow the exact text labels provided.",
+    "prompt_variables": {
+      "date": {
+        "source": "date",
+        "format": "%b %d",
+        "description": "当前日期"
+      },
+      "title": {
+        "source": "from_content",
+        "description": "标题"
+      },
+      "subtitle": {
+        "source": "from_content",
+        "description": "副标题"
+      },
+      "theme_element": {
+        "source": "llm_inference",
+        "inference_prompt": "For finance topic '{topic}', identify a recognizable finance-themed 3D element. Examples: Charging Bull statue, stack of gold coins, stock exchange building, candlestick chart, safe vault, piggy bank. Return ONLY the element name in 1-5 words.",
+        "default": "financial trading floor",
+        "description": "金融主题3D元素"
+      }
+    }
   }
 }
