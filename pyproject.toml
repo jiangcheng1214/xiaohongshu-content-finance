@@ -26,6 +26,7 @@ dev = [
 [project.scripts]
 xhs-gen = "scripts.xhs_cli.cli:main"
 xhs-do = "scripts.xhs_cli.cli:main_do"
+xhs-cli = "scripts.xhs_cli.cli:main"
 
 [tool.ruff]
 target-version = "py310"

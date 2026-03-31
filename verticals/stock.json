@@ -161,7 +161,7 @@
   "cover_config": {
     "logo_file": "default.png",
     "aspect_ratio": "1:1",
-    "background_prompt_template": "A cute, refined Isometric Diorama 3D miniature illustration, pure soft solid color background, claymorphism and smooth 3D render style.\n\n1. Visual Anchor:\nThe centerpiece is a 3D miniature BUILDING whose architectural shape is designed to look like the company's MOST ICONIC flagship {product_name}. Place the company's 3D Logo prominently on the building exterior. CRITICAL: There must be NO OTHER TEXT, NO LETTERS, and NO LABELS on the building itself except the small prominent company logo. The base is surrounded by small decorative elements like tiny miniature workers, stylized plants/leaves, rocks, and 3D gold coins.\n\n2. Core Information Component (The Calendar):\nIn the front corner of the diorama base, there's a realistic but cute 3D Calendar Block in Orange or White Block. The date '{date}' is perfectly and clearly engraved on the calendar block.\n\n3. Environmental Atmosphere:\nThe overall lighting and environment style is: Warm Sunny Lighting with soft accents.\n\n4. Floating Information Layer (UI Overlay):\nAbove and around the model, synthesize AR-style minimalist frosted glassmorphism UI labels (white glass bubbles with clean dark text).\n- Top Main label: '{stock_code} {price}'\n- Bottom wide label: '{headline}'\n\n1:1 square ratio, 8k resolution, C4D, Octane Render, soft studio shadows, harmonious composition, extremely high quality adorable 3D UI design, STRICTLY follow the exact text labels and color instructions provided.",
+    "background_prompt_template": "A cute, refined Isometric Diorama 3D miniature illustration, pure soft solid color background, claymorphism and smooth 3D render style.\n\n1. Visual Anchor:\nThe centerpiece is a 3D miniature BUILDING whose architectural shape is designed to look like the company's MOST ICONIC flagship {product_name}. Place the company's 3D Logo prominently on the building exterior. CRITICAL: There must be NO OTHER TEXT, NO LETTERS, and NO LABELS on the building itself except the small prominent company logo. The base is surrounded by small decorative elements like tiny miniature workers, stylized plants/leaves, rocks, and 3D gold coins.\n\n2. Core Information Component (The Calendar):\nIn the front corner of the diorama base, there's a realistic but cute 3D Calendar Block in Orange or White Block. The date '{date}' is perfectly and clearly engraved on the calendar block.\n\n3. Environmental Atmosphere:\nThe overall lighting and environment style is: Warm Sunny Lighting with soft accents.\n\n4. Floating Information Layer (UI Overlay):\nAbove and around the model, synthesize AR-style minimalist frosted glassmorphism UI labels (white glass bubbles with clean dark text).\n- Top Main label: '{stock_code} {price}'\n- Bottom wide label: '{hook_point}'\n\n1:1 square ratio, 8k resolution, C4D, Octane Render, soft studio shadows, harmonious composition, extremely high quality adorable 3D UI design, STRICTLY follow the exact text labels and color instructions provided.",
     "prompt_variables": {
       "stock_code": {
         "source": "extract_from_topic",
@@ -176,18 +176,16 @@
       "price": {
         "source": "web_search",
         "query": "{stock_code} stock price today investing.com",
-        "default": "---",
-        "description": "Get the current stock price for {stock_code}. Return ONLY the price in format $150.25 with dollar sign."
+        "default": "",
+        "description": "Get the current stock price for {stock_code}. Return ONLY the price in format of float value with dollar sign."
       },
-      "headline": {
-        "source": "web_search",
-        "query": "{stock_code} stock news catalyst today",
-        "default": "市场动态",
-        "description": "提取最新的中文新闻头条，10-20个中文字符。必须是当日新闻，不要用旧闻或通用分析。"
+      "hook_point": {
+        "source": "from_content",
+        "description": "精彩总结（8-15字）"
       },
       "product_name": {
         "source": "llm_inference",
-        "inference_prompt": "For stock code '{stock_code}':\n\nStep 1: Identify the EXACT company this ticker represents.\nStep 2: Describe their MOST recognizable flagship product, iconic building, or brand symbol.\n\nGuidelines:\n- Be specific to THIS company only - do not guess similar companies in the same industry\n- Think: What is THIS company famous for? What product makes them unique?\n- Product examples: their main device, software logo, hardware product, or headquarters building\n- If tech company: their flagship hardware, software logo, or campus\n- If other: their most well-known product, logo, or office building\n\nReturn ONLY the product/building description in 2-6 words. No explanation.",
+        "inference_prompt": "What is the most iconic physical product or headquarter building of {stock_code}?\nReturn ONLY 2-4 words. No punctuation.",
         "depends_on": [
           "stock_code"
         ],

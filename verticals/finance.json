@@ -135,7 +135,7 @@
   "cover_config": {
     "logo_file": "finance.png",
     "aspect_ratio": "1:1",
-    "background_prompt_template": "A cute, refined Isometric Diorama 3D miniature illustration, pure soft solid color background, claymorphism and smooth 3D render style.\n\n1. Visual Anchor:\nThe centerpiece is a 3D miniature {theme_element} - a recognizable finance-themed object or sculpture. Place it prominently on a circular base. The base is surrounded by small decorative elements like tiny miniature gold coins, currency symbols ($), and abstract geometric data blocks.\n\n2. Core Information Component (The Calendar):\nIn the front corner of the diorama base, there's a realistic but cute 3D Calendar Block in Navy Blue. The date '{date}' is perfectly and clearly engraved on the calendar block.\n\n3. Environmental Atmosphere:\nProfessional financial district aesthetic with Warm Golden Lighting. Deep blue and gold color palette symbolizing trust and prosperity. Soft studio shadows, harmonious composition.\n\n4. Floating Information Layer (UI Overlay):\nAbove and around the model, synthesize AR-style minimalist frosted glassmorphism UI labels (white glass bubbles with clean dark text).\n- Top Main label: '{title}'\n- Secondary wide label underneath: '{subtitle}'\n- Bottom Left quote: '{key_point_1}'\n- Bottom Right quote: '{key_point_2}'\n\n1:1 square ratio, 8k resolution, C4D, Octane Render, extremely high quality adorable 3D UI design, STRICTLY follow the exact text labels provided.",
+    "background_prompt_template": "A cute, refined Isometric Diorama 3D miniature illustration, pure soft solid color background, claymorphism and smooth 3D render style.\n\n1. Visual Anchor:\nThe centerpiece is a 3D miniature {theme_element} - a recognizable finance-themed object or sculpture. Place it prominently on a circular base. The base is surrounded by small decorative elements like tiny miniature gold coins, currency symbols ($), and abstract geometric data blocks.\n\n2. Core Information Component (The Calendar):\nIn the front corner of the diorama base, there's a realistic but cute 3D Calendar Block in Navy Blue. The date '{date}' is perfectly and clearly engraved on the calendar block.\n\n3. Environmental Atmosphere:\nProfessional financial district aesthetic with Warm Golden Lighting. Deep blue and gold color palette symbolizing trust and prosperity. Soft studio shadows, harmonious composition.\n\n4. Floating Information Layer (UI Overlay):\nAbove and around the model, synthesize AR-style minimalist frosted glassmorphism UI labels (white glass bubbles with clean dark text).\n- Top Main label: '{title}'\n- Secondary wide label underneath: '{subtitle}'\n- Bottom Left quote: '{key_point}'\n- Bottom Right quote: '{hook_point}'\n\n1:1 square ratio, 8k resolution, C4D, Octane Render, extremely high quality adorable 3D UI design, STRICTLY follow the exact text labels provided.",
     "prompt_variables": {
       "date": {
         "source": "date",
@@ -150,13 +150,13 @@
         "source": "from_content",
         "description": "副标题"
       },
-      "key_point_1": {
+      "key_point": {
         "source": "from_content",
-        "description": "内容要点1（8-15字）"
+        "description": "内容要点（8-15字）"
       },
-      "key_point_2": {
+      "hook_point": {
         "source": "from_content",
-        "description": "内容要点2（8-15字）"
+        "description": "精彩总结（8-15字）"
       },
       "theme_element": {
         "source": "llm_inference",

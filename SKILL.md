@@ -3,7 +3,7 @@ name: xiaohongshu-smart-gen
 description: 小红书多垂类内容智能生成技能。支持金融、美妆、科技等垂类，从话题研究到内容创作、封面生成的全链路自动化。
 license: MIT
 compatibility: Requires Python 3, requests, nano-banana-pro skill, and GEMINI_API_KEY. Works on macOS/Linux/Windows.
-argument-hint: "<vertical> <topic> [--init|--content|--images|--cover|--info|--all|--send]"
+argument-hint: "<vertical> <topic> [--max-retries N]"
 disable-model-invocation: false
 user-invocable: true
 metadata:
@@ -36,9 +36,20 @@ metadata:
 1. [用户] 提供垂类和主题
 2. [Agent] 执行完整生成流程
    cd ~/.openclaw/skills/xiaohongshu-smart-gen
-   python3 xhs_gen.py <vertical> "<topic>"
+   python3 scripts/cli.py generate <vertical> "<topic>"
 3. [Agent] 查看 session 信息
-   python3 xhs_gen.py <vertical> "<topic>" --action info
+   python3 scripts/cli.py info <session_dir>
+```
+
+### 快捷调用方式
+
+```bash
+# 使用 CLI（推荐）
+cd ~/.openclaw/skills/xiaohongshu-smart-gen
+python3 scripts/cli.py generate finance "PLTR还能追吗"
+
+# 使用 hook
+bash hooks/xhs_do.sh finance "PLTR还能追吗"
 ```
 
 ### Session 管理
@@ -48,7 +59,6 @@ metadata:
 ```
 ~/.openclaw/agents/main/agent/xhs_session_<timestamp>_<safe_topic>/
 ├── session.json       # session 元数据
-├── vertical.json      # 垂类配置副本
 ├── content.md         # 生成的文字内容
 ├── cover.png          # 生成的封面图
 └── images/            # 搜索到的参考图
@@ -59,8 +69,10 @@ metadata:
 | 垂类 | 代码 | 人设 | 特点 |
 |------|------|------|------|
 | 金融投资 | `finance` | 量化交易员 | 数据驱动，风险提示 |
+| 股票 | `stock` | 股票分析 | 实时行情，数据驱动 |
 | 美妆护肤 | `beauty` | 资深博主 | 真实测评，避坑指南 |
 | 数码科技 | `tech` | 专业测评人 | 参数分析，购买建议 |
+| 壁纸 | `wallpaper` | 壁纸分享 | 高清壁纸 |
 
 ---
 
@@ -68,43 +80,192 @@ metadata:
 
 > **工作目录**: `~/.openclaw/skills/xiaohongshu-smart-gen`
 
-### 主工作流
+### 主命令
 
 ```bash
 # 设置工作目录
 cd ~/.openclaw/skills/xiaohongshu-smart-gen
 
 # 完整生成（内容 + 封面 + 发送）
-python3 xhs_gen.py finance "PLTR还能追吗"
+python3 scripts/cli.py generate finance "PLTR还能追吗"
 
 # 分步执行
-python3 xhs_gen.py finance "PLTR" --action init     # 初始化
-python3 xhs_gen.py finance "PLTR" --action content  # 生成内容
-python3 xhs_gen.py finance "PLTR" --action cover    # 生成封面
-python3 xhs_gen.py finance "PLTR" --action info     # 查看信息
+python3 scripts/cli.py content finance "PLTR" --max-retries 3
+python3 scripts/cli.py cover finance "PLTR"
+python3 scripts/cli.py send <session_dir>
+
+# 查看信息
+python3 scripts/cli.py info <session_dir>
+python3 scripts/cli.py list
+python3 scripts/cli.py verticals
 ```
 
-### xhs-do 快捷方式（跨平台）
+---
+
+## CLI 子命令参考
+
+### generate - 完整生成流程
 
 ```bash
-# 跨平台 Python 入口（推荐）
-cd ~/.openclaw/skills/xiaohongshu-smart-gen
-python scripts/xhs_do.py finance "PLTR还能追吗"
-python scripts/xhs_do.py beauty "雅诗兰黛DW值得买吗"
-python scripts/xhs_do.py tech "iPhone 16 Pro评测"
-
-# 生成并发送到 Telegram
-python scripts/xhs_do.py finance "PLTR" --all --send
-
-# 仅发送已有内容到 Telegram
-python scripts/xhs_do.py finance "PLTR" --send
+python3 scripts/cli.py generate <vertical> "<topic>" [--max-retries N]
 ```
 
-**Windows 用户**：
-```powershell
-cd ~/.openclaw/skills/xiaohongshu-smart-gen
-python scripts\xhs_do.py finance "PLTR还能追吗"
+执行完整的 7 步流水线：研究 → 内容生成 → 验证 → 封面生成 → 发送
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `vertical` | 垂类代码 (finance/stock/tech/beauty/wallpaper) | - |
+| `topic` | 内容主题（必需） | - |
+| `--max-retries` | 内容生成最大重试次数 | 2 |
+
+**输出示例**：
+```json
+{
+  "success": true,
+  "session_id": "xhs_session_1712345678_PLTR",
+  "session_dir": "/Users/user/.openclaw/agents/main/agent/xhs_session_1712345678_PLTR",
+  "vertical": "finance",
+  "topic": "PLTR还能追吗",
+  "status": "completed",
+  "content": {
+    "title": "PLTR还能追吗？",
+    "subtitle": "数据告诉你真相",
+    "content_length": 523
+  },
+  "cover": "/path/to/cover.png",
+  "content_file": "/path/to/content.md"
+}
 ```
+
+### content - 仅生成内容
+
+```bash
+python3 scripts/cli.py content <vertical> "<topic>" [--max-retries N]
+```
+
+执行步骤 1-3：研究 → 内容生成 → 验证
+
+**输出示例**：
+```json
+{
+  "success": true,
+  "session_id": "xhs_session_1712345678_PLTR",
+  "content": {
+    "title": "PLTR还能追吗？",
+    "subtitle": "数据告诉你真相",
+    "content_length": 523
+  },
+  "content_file": "/path/to/content.md"
+}
+```
+
+### cover - 仅生成封面
+
+```bash
+python3 scripts/cli.py cover <vertical> "<topic>"
+```
+
+执行步骤 4-6：封面变量收集 → 图片生成 → Logo 叠加
+
+**注意**：需要先执行 `content` 命令生成内容
+
+### info - 显示 Session 信息
+
+```bash
+python3 scripts/cli.py info <session_dir>
+```
+
+查看指定 session 的详细状态、生成内容、文件等信息
+
+**输出示例**：
+```json
+{
+  "success": true,
+  "session": {
+    "id": "xhs_session_1712345678_PLTR",
+    "vertical": "finance",
+    "topic": "PLTR还能追吗",
+    "status": "completed",
+    "session_dir": "/path/to/session",
+    "created_at": "2025-03-30T10:00:00Z",
+    "updated_at": "2025-03-30T10:05:00Z"
+  },
+  "steps": {
+    "research": {"status": "completed"},
+    "generate": {"status": "completed"},
+    "validate": {"status": "completed"},
+    "prepare_img": {"status": "completed"},
+    "gen_img": {"status": "completed"},
+    "overlay": {"status": "completed"},
+    "deliver": {"status": "completed"}
+  },
+  "files": {
+    "content": "/path/to/content.md",
+    "cover": "/path/to/cover.png"
+  }
+}
+```
+
+### list - 列出所有 Sessions
+
+```bash
+python3 scripts/cli.py list
+```
+
+**输出示例**：
+```json
+{
+  "success": true,
+  "count": 3,
+  "sessions": [
+    {
+      "id": "xhs_session_1712345678_PLTR",
+      "vertical": "finance",
+      "topic": "PLTR还能追吗",
+      "status": "completed",
+      "session_dir": "/path/to/session1"
+    }
+  ]
+}
+```
+
+### verticals - 列出支持的垂类
+
+```bash
+python3 scripts/cli.py verticals
+```
+
+**输出示例**：
+```json
+{
+  "success": true,
+  "verticals": [
+    {"code": "finance", "name": "金融投资", "description": "量化交易员人设，数据驱动，风险提示"},
+    {"code": "stock", "name": "股票", "description": "股票分析，实时行情，数据驱动"},
+    {"code": "tech", "name": "数码科技", "description": "专业测评人，参数分析，购买建议"},
+    {"code": "beauty", "name": "美妆护肤", "description": "资深博主，真实测评，避坑指南"},
+    {"code": "wallpaper", "name": "壁纸", "description": "高清壁纸分享"}
+  ]
+}
+```
+
+### send - 发送到 Telegram
+
+```bash
+python3 scripts/cli.py send <session_dir>
+```
+
+将已生成的内容发送到 Telegram
+
+---
+
+## 退出码
+
+| 退出码 | 说明 |
+|--------|------|
+| 0 | 成功 |
+| 1 | 部分失败（如内容生成成功但封面失败） |
+| 2 | 完全失败 |
 
 ---
 
