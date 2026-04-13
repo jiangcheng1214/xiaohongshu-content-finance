@@ -26,6 +26,8 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
+import subprocess
+from pathlib import Path as _Path
 
 # 添加 lib 目录到路径
 SCRIPT_DIR = Path(__file__).parent.absolute()
@@ -47,6 +49,8 @@ logger = logging.getLogger("xhs-gen-cli")
 
 # 常量
 DEFAULT_WORKSPACE = Path.home() / ".openclaw" / "agents" / "main" / "agent"
+
+MD2IMG_SKILL_DIR = Path.home() / ".openclaw" / "skills" / "md2img"
 
 # 支持的垂类列表
 SUPPORTED_VERTICALS = [
@@ -107,6 +111,7 @@ def cmd_generate(args: argparse.Namespace) -> None:
     完整生成流程：内容 + 封面 + 发送
 
     这是主要的内容生成命令，执行完整的 7 步流水线。
+    当 --skip-image-gen 时，跳过AI封面生成，改用md2img文字卡片可视化。
     """
     if args.vertical not in SUPPORTED_VERTICALS:
         _error(
@@ -119,8 +124,12 @@ def cmd_generate(args: argparse.Namespace) -> None:
     session = _get_session(pipeline, args.vertical, args.topic)
 
     max_retries = getattr(args, 'max_retries', 2)
+    skip_image_gen = getattr(args, 'skip_image_gen', False)
 
-    success = pipeline.run_all(session, max_retries=max_retries)
+    if skip_image_gen:
+        success = pipeline.run_all_skip_image(session, max_retries=max_retries)
+    else:
+        success = pipeline.run_all(session, max_retries=max_retries)
 
     # 收集输出数据
     result = {
@@ -144,6 +153,13 @@ def cmd_generate(args: argparse.Namespace) -> None:
     # 添加封面信息
     if session.file_exists('cover.png'):
         result["cover"] = str(session.get_file_path('cover.png'))
+    
+    # 添加md2img卡片信息
+    cards_dir = session.session_dir / "cards"
+    if cards_dir.exists():
+        card_files = sorted(cards_dir.glob("card_*.png"))
+        if card_files:
+            result["cards"] = [str(f) for f in card_files]
 
     # 添加内容文件路径
     if session.file_exists('content.md'):
@@ -456,6 +472,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_argument("topic", help="话题/主题")
     sub.add_argument("--max-retries", type=int, default=2,
                      help="内容生成最大重试次数 (默认: 2)")
+    sub.add_argument("--skip-image-gen", action="store_true", default=False,
+                     help="跳过AI封面生成，改用md2img文字可视化卡片")
     sub.set_defaults(func=cmd_generate)
 
     # content - 仅生成内容

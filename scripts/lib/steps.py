@@ -592,6 +592,75 @@ class BaseStep(ABC):
 class Step1Research(BaseStep):
     """Step 1: 搜索数据"""
 
+    def _infer_search_queries(self, session: XhsSession, config: dict) -> list:
+        """
+        使用 LLM 推断需要搜索的内容
+
+        Args:
+            session: XhsSession 实例
+            config: 垂类配置
+
+        Returns:
+            List of dict with 'template' and 'purpose' keys, or None if inference fails
+        """
+        session.log('info', 'research', 'Using LLM to infer search queries...')
+
+        # 获取垂类信息用于构建 prompt
+        vertical_name = config.get('name', session.vertical)
+        vertical_desc = config.get('description', '')
+
+        # 构建推断 prompt
+        infer_prompt = f"""你是一位专业的小红书内容研究专家。
+
+## 任务
+对于主题「{session.topic}」（垂类：{vertical_name}），请推断需要搜索哪些关键信息来写出高质量的小红书内容。
+
+## 垂类说明
+{vertical_desc}
+
+## 要求
+1. 返回 3-5 个精确的搜索查询
+2. 每个查询都应该针对不同的信息维度（如：价格/数据、新闻动态、用户评价、对比分析等）
+3. 查询必须简洁精准，适合搜索引擎
+4. 必须包含时间关键词确保获取最新信息（如：today, latest, current）
+
+## 输出格式（严格遵守 JSON）
+{{
+  "queries": [
+    {{"query": "搜索查询1", "purpose": "查询目的说明"}},
+    {{"query": "搜索查询2", "purpose": "查询目的说明"}},
+    {{"query": "搜索查询3", "purpose": "查询目的说明"}}
+  ]
+}}
+
+请只输出 JSON，不要添加任何其他文字。"""
+
+        try:
+            result = self.call_llm(infer_prompt, expect_json=True, timeout=60)
+
+            if result and 'queries' in result:
+                inferred_queries = result['queries']
+
+                # 转换为内部格式
+                queries = []
+                for q in inferred_queries:
+                    queries.append({
+                        'template': q.get('query', ''),
+                        'purpose': q.get('purpose', ''),
+                        'inferred': True  # 标记为 LLM 推断
+                    })
+
+                session.log('success', 'research',
+                          f'LLM inferred {len(queries)} search queries',
+                          {'queries': [q['template'] for q in queries]})
+                return queries
+
+        except Exception as e:
+            session.log('warning', 'research',
+                      f'LLM inference failed: {e}, falling back to config queries')
+
+        return None
+
     def run(self, session: XhsSession, **kwargs) -> bool:
         """执行搜索步骤"""
         session.log('info', 'research', 'Step started',
@@ -602,7 +671,19 @@ class Step1Research(BaseStep):
         try:
             config = self.load_vertical_config(session.vertical)
             research_config = config.get('content_research', {})
-            queries = research_config.get('queries', [])
+
+            # ========== 新流程：使用 LLM 推断搜索查询 ==========
+            # 优先级：LLM 推断 > 配置文件查询 > 默认模板
+            queries = None
+
+            # 1. 尝试 LLM 推断
+            inferred = self._infer_search_queries(session, config)
+            if inferred:
+                queries = inferred
+
+            # 2. 回退到配置文件查询
+            if not queries:
+                queries = research_config.get('queries', [])
 
             # 对于股票垂类，首先从 Yahoo Finance 获取准确数据
             stock_yahoo_data = None
@@ -663,16 +744,21 @@ class Step1Research(BaseStep):
             for q in queries:
                 template = q.get('template', '')
                 purpose = q.get('purpose', '')
+                is_inferred = q.get('inferred', False)
+
                 query = template.replace('{topic}', session.topic).replace('{year}', str(current_year))
 
-                # 添加时间关键词确保获取最新数据（48小时内）
-                time_keywords = ' today latest current'
-                if 'today' not in query.lower() and 'latest' not in query.lower():
-                    query = f'{query} {time_keywords}'
+                # 对于推断的查询，已经包含时间关键词，不再强制添加
+                # 对于配置的查询，添加时间关键词确保获取最新数据
+                if not is_inferred:
+                    time_keywords = ' today latest current'
+                    if 'today' not in query.lower() and 'latest' not in query.lower():
+                        query = f'{query} {time_keywords}'
 
                 search_queries_used.append(query)
+                source = 'LLM' if is_inferred else 'config'
                 session.log('info', 'research', f'Searching: {query[:50]}...',
-                          {'purpose': purpose})
+                          {'purpose': purpose, 'source': source})
 
                 try:
                     search_start = time.time()
@@ -732,6 +818,7 @@ Be factual and concise."""
             # 更新 session
             session.update_step('research', 'completed', {
                 'search_queries': search_queries_used,
+                'query_source': 'llm_inferred' if any(q.get('inferred') for q in queries) else 'config',
                 'results_summary': research_output[:500].replace('\n', ' '),
                 'raw_output_file': 'research_raw.md',
                 'total_queries': len(search_queries_used),

@@ -1,3 +1,4 @@
+import sys
 #!/usr/bin/env python3
 """
 小红书内容生成 - Pipeline 流水线
@@ -74,6 +75,53 @@ class Pipeline:
         except Exception as e:
             session.set_status('failed')
             raise
+
+
+    def run_all_skip_image(self, session: XhsSession, max_retries: int = 2) -> bool:
+        """执行完整流程，跳过AI封面，改用md2img文字卡片可视化"""
+        try:
+            # 步骤 1-3: 内容生成
+            if not self.run_content_pipeline(session, max_retries):
+                return False
+
+            # 步骤 4-alt: md2img 文字可视化
+            if not self.run_md2img(session):
+                # fallback: 即使md2img失败也标记内容就绪
+                session.set_status('content_ready')
+                return True
+
+            session.set_status('completed')
+            return True
+
+        except Exception as e:
+            session.set_status('failed')
+            raise
+
+    def run_md2img(self, session: XhsSession) -> bool:
+        """使用 md2img 将内容渲染为单张高清长图"""
+        import subprocess
+        from pathlib import Path
+
+        content_file = session.get_file_path('content.md')
+        if not content_file or not Path(content_file).exists():
+            return False
+
+        md2img = Path.home() / ".openclaw" / "skills" / "md2img" / "scripts" / "md2img_long.py"
+        if not md2img.exists():
+            return False
+
+        output_png = session.session_dir / "long_image.png"
+
+        try:
+            r = subprocess.run(
+                [sys.executable, str(md2img), "all",
+                 "--input", str(content_file),
+                 "--output", str(output_png)],
+                capture_output=True, text=True, timeout=60
+            )
+            return output_png.exists()
+        except Exception:
+            return False
 
     def run_content_pipeline(self, session: XhsSession, max_retries: int = 2) -> bool:
         """执行内容生成流程（步骤 1-3）"""
